@@ -1,0 +1,35 @@
+/* Guía visual de COOTEP Turno (sección 11 del informe). Los mismos valores están en
+   movil/src/tema/tokens.ts para que web y móvil compartan identidad. */
+:root {
+  --color-primario: #0f6e56;        /* 6,2:1 con texto blanco */
+  --color-primario-suave: #e1f5ee;
+  --color-texto: #1f2933;           /* 13,7:1 sobre el fondo */
+  --color-texto-secundario: #52606d;
+  --color-fondo: #f5f7fa;
+  --color-superficie: #ffffff;
+  --color-borde: #e4e7eb;
+  --color-exito: #1b7a35;
+  --color-aviso: #8f5500;
+  --color-error: #c62828;
+  --color-info: #1565c0;
+  --color-preferencial: #6a4cc2;
+
+  --fuente: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --texto-xs: 12px;
+  --texto-sm: 14px;
+  --texto-md: 16px;
+  --texto-lg: 20px;
+  --texto-xl: 24px;
+  --texto-xxl: 32px;
+
+  --espacio-1: 4px;
+  --espacio-2: 8px;
+  --espacio-3: 12px;
+  --espacio-4: 16px;
+  --espacio-5: 24px;
+  --espacio-6: 32px;
+  --espacio-7: 48px;
+
+  --radio: 8px;
+  --objetivo-tactil: 44px;
+}
