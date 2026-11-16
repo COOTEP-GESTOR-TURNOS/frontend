@@ -1,5 +1,6 @@
 import type { AsignacionRol, Rol } from '../auth/permisos';
 import type { TipoDocumento } from './auth';
+export type { AgenciaCatalogo, ServicioCatalogo } from './catalogo';
 import { pedir } from './http';
 
 export interface AsignacionGuardada extends AsignacionRol {
@@ -38,23 +39,6 @@ export interface FiltroUsuarios {
   pagina?: number;
 }
 
-export interface ServicioCatalogo {
-  id: string;
-  codigo: string;
-  nombre: string;
-  prefijo: string;
-  ventanillas: number;
-}
-
-export interface AgenciaCatalogo {
-  id: string;
-  codigo: string;
-  nombre: string;
-  municipio: string;
-  activa: boolean;
-  servicios: ServicioCatalogo[];
-}
-
 export interface NuevoUsuario extends AsignacionRol {
   email: string;
   nombre: string;
@@ -71,9 +55,8 @@ function consulta(f: FiltroUsuarios): string {
   return texto ? `?${texto}` : '';
 }
 
-/** Endpoints de /admin/usuarios y del catálogo (RF-06, RF-18). */
+/** Endpoints de /admin/usuarios (RF-18). El catálogo está en catalogo.ts. */
 export const administracionApi = {
-  agencias: () => pedir<AgenciaCatalogo[]>('GET', '/agencias'),
   listar: (f: FiltroUsuarios) => pedir<PaginaUsuarios>('GET', `/admin/usuarios${consulta(f)}`),
   obtener: (id: string) => pedir<FichaUsuario>('GET', `/admin/usuarios/${id}`),
   crear: (datos: NuevoUsuario) =>

@@ -1,5 +1,5 @@
-import type { AgenciaCatalogo } from '../api/administracion';
 import { NOMBRE_ROL } from '../api/administracion';
+import type { AgenciaCatalogo } from '../api/catalogo';
 import type { AsignacionRol, Rol } from '../auth/permisos';
 import { Selector } from './Campo';
 
