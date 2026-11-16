@@ -315,3 +315,57 @@ main.ancho {
   align-items: center;
   margin-top: var(--espacio-3);
 }
+
+/* --- Mejor hora para ir (RF-10) --- */
+.mejor-horario {
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  padding: var(--espacio-4);
+  margin-bottom: var(--espacio-4);
+  background: var(--color-fondo);
+}
+.mejor-horario__cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--espacio-3);
+}
+.mejor-horario h3 {
+  margin: 0;
+  font-size: var(--texto-md);
+}
+.mejor-horario__pie {
+  font-size: var(--texto-sm);
+  margin-bottom: 0;
+}
+.segmentado {
+  display: inline-flex;
+  border: 1px solid var(--color-primario);
+  border-radius: var(--radio);
+  overflow: hidden;
+}
+.segmentado button {
+  min-height: var(--objetivo-tactil);
+  padding: 0 var(--espacio-4);
+  border: none;
+  background: var(--color-superficie);
+  color: var(--color-primario);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.segmentado button[aria-pressed='true'] {
+  background: var(--color-primario);
+  color: #fff;
+}
+.lista-franjas {
+  margin: var(--espacio-3) 0 0;
+  padding-left: var(--espacio-5);
+}
+.lista-franjas li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-1) var(--espacio-3);
+  padding: var(--espacio-2) 0;
+}

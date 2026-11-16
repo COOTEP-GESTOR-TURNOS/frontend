@@ -7,6 +7,7 @@ import { useCatalogo } from '../api/useCatalogo';
 import { useSesion } from '../auth/sesion';
 import { Aviso } from '../componentes/Aviso';
 import { Boton } from '../componentes/Boton';
+import { MejorHorario } from '../componentes/MejorHorario';
 import { type Fila, SelectorFila } from '../componentes/SelectorFila';
 import { TarjetaTurno } from '../componentes/TarjetaTurno';
 import { conectarTiempoReal } from '../tiempo-real/socket';
@@ -133,6 +134,7 @@ export function PanelAsociado() {
               <Aviso tipo="info">Ninguna agencia está atendiendo en este momento.</Aviso>
             )}
             {abiertas.length > 0 && <SelectorFila agencias={abiertas} valor={fila} alCambiar={setFila} />}
+            {fila.agenciaId && fila.servicioId && <MejorHorario agenciaId={fila.agenciaId} servicioId={fila.servicioId} />}
             <div className="campo">
               <label>
                 <input type="checkbox" checked={preferencial} onChange={(e) => setPreferencial(e.target.checked)} /> Necesito
