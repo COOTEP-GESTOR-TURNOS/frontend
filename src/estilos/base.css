@@ -151,3 +151,167 @@ a.boton {
     transition: background-color 0.3s ease;
   }
 }
+
+/* --- Identidad y administración --- */
+.campo__ayuda {
+  color: var(--color-texto-secundario);
+  font-size: var(--texto-sm);
+}
+.campo input[aria-invalid='true'] {
+  border-color: var(--color-error);
+}
+.campo-clave {
+  margin-bottom: var(--espacio-4);
+}
+.campo-clave .campo {
+  margin-bottom: var(--espacio-1);
+}
+.enlace-boton {
+  background: none;
+  border: none;
+  padding: var(--espacio-1) 0;
+  color: var(--color-primario);
+  font: inherit;
+  font-size: var(--texto-sm);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.aviso {
+  border-radius: var(--radio);
+  padding: var(--espacio-3) var(--espacio-4);
+  margin-bottom: var(--espacio-4);
+  border: 1px solid;
+}
+.aviso--info {
+  background: #e8f1fb;
+  border-color: var(--color-info);
+}
+.aviso--exito {
+  background: #e7f4ea;
+  border-color: var(--color-exito);
+}
+.aviso--error {
+  background: #fdecea;
+  border-color: var(--color-error);
+}
+
+.encabezado nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--espacio-3);
+}
+.encabezado nav a {
+  color: #fff;
+  text-decoration: none;
+  padding: var(--espacio-2);
+  border-radius: var(--radio);
+}
+.encabezado nav a[aria-current='page'] {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.separador {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-3);
+  color: var(--color-texto-secundario);
+  margin: var(--espacio-4) 0;
+}
+.separador::before,
+.separador::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--color-borde);
+}
+
+.qr-mfa {
+  display: block;
+  margin: var(--espacio-3) auto;
+  width: 200px;
+  height: 200px;
+}
+.secreto-mfa {
+  font-family: ui-monospace, Consolas, monospace;
+  word-break: break-all;
+  background: var(--color-fondo);
+  padding: var(--espacio-2);
+  border-radius: var(--radio);
+}
+.codigo-mfa input {
+  font-size: var(--texto-lg);
+  letter-spacing: 0.3em;
+  text-align: center;
+}
+
+main.ancho {
+  max-width: 1040px;
+}
+.rejilla-admin {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--espacio-4);
+}
+@media (min-width: 900px) {
+  .rejilla-admin {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
+  }
+}
+.filtros {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--espacio-3);
+}
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--texto-sm);
+}
+.tabla th,
+.tabla td {
+  text-align: left;
+  padding: var(--espacio-2);
+  border-bottom: 1px solid var(--color-borde);
+  vertical-align: top;
+}
+.tabla tr[aria-selected='true'] {
+  background: var(--color-primario-suave);
+}
+.tabla button.enlace-boton {
+  text-align: left;
+}
+.etiqueta {
+  display: inline-block;
+  padding: 2px var(--espacio-2);
+  border-radius: 999px;
+  font-size: var(--texto-xs);
+  font-weight: 600;
+  background: var(--color-fondo);
+  border: 1px solid var(--color-borde);
+  margin: 0 var(--espacio-1) var(--espacio-1) 0;
+}
+.etiqueta--inactivo {
+  color: var(--color-error);
+  border-color: var(--color-error);
+}
+.lista-roles {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--espacio-4);
+}
+.lista-roles li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--espacio-3);
+  padding: var(--espacio-2) 0;
+  border-bottom: 1px solid var(--color-borde);
+}
+.paginacion {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--espacio-3);
+}
