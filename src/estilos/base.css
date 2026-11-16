@@ -369,3 +369,52 @@ main.ancho {
   gap: var(--espacio-1) var(--espacio-3);
   padding: var(--espacio-2) 0;
 }
+
+/* --- Tablero de indicadores (RF-19) --- */
+.tablero {
+  display: grid;
+  /* Seis cifras: 3 + 3 desde tableta; en el teléfono, las columnas que quepan */
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--espacio-4);
+  margin-bottom: var(--espacio-4);
+}
+@media (min-width: 720px) {
+  .tablero {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.tablero__cifra {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-1);
+  background: var(--color-superficie);
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  padding: var(--espacio-4);
+}
+.tablero__cifra strong {
+  font-size: var(--texto-xl);
+}
+.tablero__cifra span {
+  font-size: var(--texto-sm);
+}
+.barra {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 140px;
+  height: 24px;
+  padding-left: var(--espacio-2);
+}
+.barra__relleno {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--color-primario-suave);
+  border-left: 3px solid var(--color-primario);
+  border-radius: 4px;
+}
+.barra > span:last-child {
+  position: relative;
+}
