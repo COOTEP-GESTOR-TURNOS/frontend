@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { AGENCIAS, SERVICIOS } from '../api/catalogo-demo';
+import { describirFila, servicioParaAgencia } from '../api/catalogo';
 import { ErrorApi } from '../api/http';
 import { Turno, turnosApi } from '../api/turnos';
+import { useCatalogo } from '../api/useCatalogo';
 import { useSesion } from '../auth/sesion';
+import { Aviso } from '../componentes/Aviso';
 import { Boton } from '../componentes/Boton';
+import { SelectorFila } from '../componentes/SelectorFila';
 import { TarjetaTurno } from '../componentes/TarjetaTurno';
 
 /** CU-04: llamar, atender, verificar la atención preferencial y marcar ausencias. Atajo: tecla N. */
@@ -11,8 +14,14 @@ export function PanelFuncionario() {
   const { usuario } = useSesion();
   const ambito = usuario?.roles.find((r) => r.rol === 'FUNCIONARIO' || r.rol === 'ADMIN_AGENCIA');
   const agenciaId = ambito?.agenciaId ?? '';
-  const agencia = AGENCIAS.find((a) => a.id === agenciaId)?.nombre ?? 'Agencia sin asignar';
-  const [servicioId, setServicioId] = useState(ambito?.servicioId ?? SERVICIOS[0].id);
+  const catalogo = useCatalogo();
+  const agencia = catalogo.agencias.find((a) => a.id === agenciaId);
+  const [servicioId, setServicioId] = useState(ambito?.servicioId ?? '');
+
+  // Sin servicio asignado por su rol, empieza en la primera fila de su agencia.
+  useEffect(() => {
+    if (!servicioId && agencia) setServicioId(servicioParaAgencia(catalogo.agencias, agencia.id, undefined) ?? '');
+  }, [agencia, catalogo.agencias, servicioId]);
   const [actual, setActual] = useState<Turno | null>(null);
   const [accion, setAccion] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState<string | null>(null);
@@ -39,27 +48,38 @@ export function PanelFuncionario() {
   useEffect(() => {
     function alPresionar(evento: KeyboardEvent) {
       const escribiendo = evento.target instanceof HTMLInputElement || evento.target instanceof HTMLSelectElement;
-      if (!escribiendo && evento.key.toLowerCase() === 'n' && !accion) void llamar();
+      if (!escribiendo && evento.key.toLowerCase() === 'n' && !accion && servicioId) void llamar();
     }
     document.addEventListener('keydown', alPresionar);
     return () => document.removeEventListener('keydown', alPresionar);
-  }, [llamar, accion]);
+  }, [llamar, accion, servicioId]);
 
   return (
     <main id="contenido">
       <section className="tarjeta">
-        <h2>{agencia}</h2>
-        <div className="campo">
-          <label htmlFor="servicio">Fila que atiendo</label>
-          <select id="servicio" value={servicioId} onChange={(e) => setServicioId(e.target.value)} disabled={Boolean(ambito?.servicioId)}>
-            {SERVICIOS.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.nombre}
-              </option>
-            ))}
-          </select>
-        </div>
-        <Boton cargando={accion === 'llamar'} onClick={() => void llamar()} aria-keyshortcuts="N">
+        <h2>{agencia?.nombre ?? (catalogo.cargando ? 'Cargando agencia…' : 'Agencia sin asignar')}</h2>
+        {catalogo.error && (
+          <Aviso tipo="error">
+            {catalogo.error}{' '}
+            <button type="button" className="enlace-boton" onClick={catalogo.reintentar}>
+              Reintentar
+            </button>
+          </Aviso>
+        )}
+        {!catalogo.cargando && !catalogo.error && !agencia && (
+          <Aviso tipo="error">Tu rol no tiene una agencia del catálogo. Pide al administrador que revise tu asignación.</Aviso>
+        )}
+        {agencia && (
+          <SelectorFila
+            agencias={catalogo.agencias}
+            valor={{ agenciaId, servicioId }}
+            alCambiar={(f) => setServicioId(f.servicioId)}
+            agenciaFija
+            servicioFijo={Boolean(ambito?.servicioId)}
+            etiquetaServicio="Fila que atiendo"
+          />
+        )}
+        <Boton cargando={accion === 'llamar'} disabled={!servicioId} onClick={() => void llamar()} aria-keyshortcuts="N">
           Llamar siguiente (N)
         </Boton>
         {mensaje && (
@@ -71,7 +91,7 @@ export function PanelFuncionario() {
 
       {actual && (
         <>
-          <TarjetaTurno turno={actual} titulo="Turno en ventanilla" />
+          <TarjetaTurno turno={actual} titulo="Turno en ventanilla" lugar={describirFila(catalogo.agencias, actual.agenciaId, actual.servicioId)} />
           <div className="acciones">
             {actual.estado === 'LLAMADO' && actual.tipoAtencion === 'PREFERENCIAL' && (
               <>

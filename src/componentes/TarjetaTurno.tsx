@@ -11,13 +11,15 @@ function textoPosicion(turno: Turno): string {
   return `${turno.personasDelante} ${turno.personasDelante === 1 ? 'persona' : 'personas'} delante${espera}`;
 }
 
-export function TarjetaTurno({ turno, titulo = 'Tu turno' }: { turno: Turno; titulo?: string }) {
+/** `lugar`: agencia y servicio del turno según el catálogo, por ejemplo «Caja · Agencia Mocoa». */
+export function TarjetaTurno({ turno, titulo = 'Tu turno', lugar }: { turno: Turno; titulo?: string; lugar?: string }) {
   return (
     <section className="tarjeta tarjeta--activa" aria-labelledby={`turno-${turno.id}`}>
       <p className="texto-secundario" id={`turno-${turno.id}`}>
         {titulo}
       </p>
       <p className="codigo-turno">{turno.codigo ?? '—'}</p>
+      {lugar && <p className="texto-secundario">{lugar}</p>}
       <div className="acciones">
         <ChipEstado estado={turno.estado} />
         {turno.tipoAtencion === 'PREFERENCIAL' && <span className="chip insignia-preferencial">Atención preferencial</span>}

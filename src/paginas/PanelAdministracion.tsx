@@ -1,6 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  type AgenciaCatalogo,
   administracionApi,
   type FichaUsuario,
   type FiltroUsuarios,
@@ -8,7 +7,9 @@ import {
   type PaginaUsuarios,
 } from '../api/administracion';
 import { TIPOS_DOCUMENTO, type TipoDocumento } from '../api/auth';
+import type { AgenciaCatalogo } from '../api/catalogo';
 import { mensajeDeError } from '../api/http';
+import { useCatalogo } from '../api/useCatalogo';
 import { agenciasAdministradas, type AsignacionRol, esSuperadmin, puedeAsignarRol, type Rol } from '../auth/permisos';
 import { useSesion } from '../auth/sesion';
 import { Aviso } from '../componentes/Aviso';
@@ -30,19 +31,12 @@ export function PanelAdministracion() {
   const propias = useMemo(() => agenciasAdministradas(roles), [roles]);
   const rolesAsignables: Rol[] = superadmin ? TODOS_LOS_ROLES : ['FUNCIONARIO'];
 
-  const [agencias, setAgencias] = useState<AgenciaCatalogo[]>([]);
+  const { agencias, error: errorCatalogo } = useCatalogo();
   const [filtro, setFiltro] = useState<FiltroUsuarios>({ pagina: 1 });
   const [pagina, setPagina] = useState<PaginaUsuarios | null>(null);
   const [seleccionado, setSeleccionado] = useState<FichaUsuario | null>(null);
   const [creando, setCreando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    administracionApi
-      .agencias()
-      .then((a) => setAgencias(a ?? []))
-      .catch((err) => setError(mensajeDeError(err)));
-  }, []);
 
   const cargar = useCallback(async () => {
     try {
@@ -76,7 +70,7 @@ export function PanelAdministracion() {
             ? 'Crea los directivos de cada agencia, asigna roles y desactiva cuentas. Cada cambio queda en la auditoría.'
             : 'Da de alta a los funcionarios de tu agencia y asígnales su servicio. Cada cambio queda en la auditoría.'}
         </p>
-        {error && <Aviso tipo="error">{error}</Aviso>}
+        {(error ?? errorCatalogo) && <Aviso tipo="error">{error ?? errorCatalogo}</Aviso>}
       </section>
 
       <div className="rejilla-admin">

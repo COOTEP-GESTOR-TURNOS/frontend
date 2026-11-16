@@ -1,10 +1,13 @@
-import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Socket } from 'socket.io-client';
-import { AGENCIAS, SERVICIOS } from '../api/catalogo-demo';
+import { agenciasAbiertas, describirFila, servicioParaAgencia } from '../api/catalogo';
 import { ErrorApi } from '../api/http';
 import { Turno, turnosApi } from '../api/turnos';
+import { useCatalogo } from '../api/useCatalogo';
 import { useSesion } from '../auth/sesion';
+import { Aviso } from '../componentes/Aviso';
 import { Boton } from '../componentes/Boton';
+import { type Fila, SelectorFila } from '../componentes/SelectorFila';
 import { TarjetaTurno } from '../componentes/TarjetaTurno';
 import { conectarTiempoReal } from '../tiempo-real/socket';
 
@@ -16,13 +19,21 @@ function mensajeDe(error: unknown): string {
 export function PanelAsociado() {
   const { usuario } = useSesion();
   const [turno, setTurno] = useState<Turno | null>(null);
-  const [agenciaId, setAgenciaId] = useState(AGENCIAS[0].id);
-  const [servicioId, setServicioId] = useState(SERVICIOS[0].id);
+  const catalogo = useCatalogo();
+  const abiertas = useMemo(() => agenciasAbiertas(catalogo.agencias), [catalogo.agencias]);
+  const [fila, setFila] = useState<Fila>({ agenciaId: '', servicioId: '' });
   const [preferencial, setPreferencial] = useState(false);
   const [accion, setAccion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const claveIdempotencia = useRef(crypto.randomUUID());
   const socket = useRef<Socket | null>(null);
+
+  // Al llegar el catálogo se elige la primera agencia abierta y su primer servicio.
+  useEffect(() => {
+    if (fila.agenciaId || abiertas.length === 0) return;
+    const agenciaId = abiertas[0].id;
+    setFila({ agenciaId, servicioId: servicioParaAgencia(abiertas, agenciaId, undefined) ?? '' });
+  }, [abiertas, fila.agenciaId]);
 
   const refrescar = useCallback(async () => {
     try {
@@ -70,7 +81,7 @@ export function PanelAsociado() {
     evento.preventDefault();
     // La misma clave se reutiliza si hay que reintentar; se renueva solo después de un éxito.
     void ejecutar('pedir', async () => {
-      await turnosApi.solicitar(agenciaId, servicioId, preferencial, claveIdempotencia.current);
+      await turnosApi.solicitar(fila.agenciaId, fila.servicioId, preferencial, claveIdempotencia.current);
       claveIdempotencia.current = crypto.randomUUID();
     });
   }
@@ -91,7 +102,7 @@ export function PanelAsociado() {
 
       {turno ? (
         <>
-          <TarjetaTurno turno={turno} />
+          <TarjetaTurno turno={turno} lugar={describirFila(catalogo.agencias, turno.agenciaId, turno.servicioId)} />
           <div className="acciones">
             {turno.estado === 'PROXIMO' && (
               <Boton cargando={accion === 'confirmar'} onClick={() => void ejecutar('confirmar', () => turnosApi.confirmar(turno.id))}>
@@ -109,26 +120,19 @@ export function PanelAsociado() {
         <section className="tarjeta">
           <h2>Pedir turno</h2>
           <form onSubmit={pedirTurno}>
-            <div className="campo">
-              <label htmlFor="agencia">Agencia</label>
-              <select id="agencia" value={agenciaId} onChange={(e) => setAgenciaId(e.target.value)}>
-                {AGENCIAS.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="campo">
-              <label htmlFor="servicio">Servicio</label>
-              <select id="servicio" value={servicioId} onChange={(e) => setServicioId(e.target.value)}>
-                {SERVICIOS.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {catalogo.cargando && <p role="status">Cargando agencias…</p>}
+            {catalogo.error && (
+              <Aviso tipo="error">
+                {catalogo.error}{' '}
+                <button type="button" className="enlace-boton" onClick={catalogo.reintentar}>
+                  Reintentar
+                </button>
+              </Aviso>
+            )}
+            {!catalogo.cargando && !catalogo.error && abiertas.length === 0 && (
+              <Aviso tipo="info">Ninguna agencia está atendiendo en este momento.</Aviso>
+            )}
+            {abiertas.length > 0 && <SelectorFila agencias={abiertas} valor={fila} alCambiar={setFila} />}
             <div className="campo">
               <label>
                 <input type="checkbox" checked={preferencial} onChange={(e) => setPreferencial(e.target.checked)} /> Necesito
@@ -136,7 +140,7 @@ export function PanelAsociado() {
               </label>
               <span className="texto-secundario">Los adultos mayores se detectan solos. El funcionario lo verificará al llamarte.</span>
             </div>
-            <Boton type="submit" cargando={accion === 'pedir'}>
+            <Boton type="submit" cargando={accion === 'pedir'} disabled={!fila.agenciaId || !fila.servicioId}>
               Pedir turno
             </Boton>
           </form>
