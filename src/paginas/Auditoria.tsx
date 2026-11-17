@@ -167,6 +167,8 @@ export function Auditoria() {
                         </button>
                         <div className="texto-secundario">{e.actor.rol}</div>
                       </>
+                    ) : e.actor.rol === 'SISTEMA' ? (
+                      <span className="texto-secundario">Sistema (automático)</span>
                     ) : (
                       <span className="texto-secundario">Correo desconocido</span>
                     )}

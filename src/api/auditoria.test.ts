@@ -11,5 +11,8 @@ describe('RF-20: lectura de la auditoría', () => {
     expect(describirDetalle({ rol: 'ADMIN_AGENCIA', amr: ['pwd', 'otp'] })).toBe('rol: ADMIN_AGENCIA · amr: ["pwd","otp"]');
     expect(describirDetalle({ rol: { rol: 'FUNCIONARIO', agenciaId: 'a1', servicioId: 's1' } })).toBe('rol: FUNCIONARIO');
     expect(describirDetalle(null)).toBe('');
+    expect(
+      describirDetalle({ fecha: '2026-11-20', automatico: true, cancelados: 3, retiradosDelMotor: 3, duracionMotorMs: 42, siguenEnAtencion: 1 }),
+    ).toBe('3 cancelados · 1 en atención · motor 42 ms · automático');
   });
 });
