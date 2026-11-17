@@ -443,3 +443,8 @@ main.ancho {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* --- Auditoría (RF-20) --- */
+.texto-largo {
+  overflow-wrap: anywhere;
+}
