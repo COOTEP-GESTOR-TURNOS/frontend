@@ -2,7 +2,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import type { Socket } from 'socket.io-client';
 import { agenciasAbiertas, describirFila, servicioParaAgencia } from '../api/catalogo';
 import { ErrorApi } from '../api/http';
-import { Turno, turnosApi } from '../api/turnos';
+import { avisoDeCambio, Turno, turnosApi } from '../api/turnos';
 import { useCatalogo } from '../api/useCatalogo';
 import { useSesion } from '../auth/sesion';
 import { Aviso } from '../componentes/Aviso';
@@ -26,6 +26,7 @@ export function PanelAsociado() {
   const [preferencial, setPreferencial] = useState(false);
   const [accion, setAccion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
   const claveIdempotencia = useRef(crypto.randomUUID());
   const socket = useRef<Socket | null>(null);
 
@@ -53,7 +54,11 @@ export function PanelAsociado() {
   useEffect(() => {
     if (!usuario) return;
     const conexion = conectarTiempoReal(usuario.token);
-    conexion.on('turno:estado', () => void refrescar());
+    // El aviso trae el turno: si cambió por un vencimiento o un llamado, se explica en pantalla.
+    conexion.on('turno:estado', (cambio: Turno) => {
+      setAviso(avisoDeCambio(cambio));
+      void refrescar();
+    });
     conexion.on('fila:actualizada', () => void refrescar());
     socket.current = conexion;
     return () => {
@@ -80,6 +85,7 @@ export function PanelAsociado() {
 
   function pedirTurno(evento: FormEvent) {
     evento.preventDefault();
+    setAviso(null);
     // La misma clave se reutiliza si hay que reintentar; se renueva solo después de un éxito.
     void ejecutar('pedir', async () => {
       await turnosApi.solicitar(fila.agenciaId, fila.servicioId, preferencial, claveIdempotencia.current);
@@ -95,6 +101,7 @@ export function PanelAsociado() {
 
   return (
     <main id="contenido">
+      {aviso && <Aviso tipo={aviso.includes('ausente') ? 'error' : 'info'}>{aviso}</Aviso>}
       {error && (
         <p className="mensaje-error" role="alert">
           {error}
