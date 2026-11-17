@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { agenciasAdminApi, type ServicioAgencia, type VistaAgencia, type VistaParametro } from '../api/agenciasAdmin';
+import { agenciasAdminApi, resumenCierre, type ServicioAgencia, type VistaAgencia, type VistaParametro } from '../api/agenciasAdmin';
 import { mensajeDeError } from '../api/http';
 import { olvidarCatalogo, useCatalogo } from '../api/useCatalogo';
 import { agenciasAdministradas, esSuperadmin } from '../auth/permisos';
@@ -26,6 +26,8 @@ export function GestionAgencia() {
   const [vista, setVista] = useState<VistaAgencia | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [accion, setAccion] = useState<'jornada' | 'agencia' | null>(null);
+  const [recarga, setRecarga] = useState(0);
 
   useEffect(() => {
     if (!agenciaId && opciones.length > 0) setAgenciaId(opciones[0].id);
@@ -42,7 +44,7 @@ export function GestionAgencia() {
     return () => {
       vigente = false;
     };
-  }, [agenciaId]);
+  }, [agenciaId, recarga]);
 
   /** Aplica la respuesta del backend (la vista ya trae los valores efectivos) y avisa qué cambió. */
   const aplicar = useCallback((nueva: VistaAgencia | null, texto: string) => {
@@ -51,6 +53,47 @@ export function GestionAgencia() {
     setAviso(texto);
     olvidarCatalogo(); // el catálogo de esta pestaña ya no está al día
   }, []);
+
+  /** Envuelve una acción de la cabecera: un clic a la vez, y el error a la vista. */
+  async function ejecutar(nombre: 'jornada' | 'agencia', operacion: () => Promise<void>) {
+    setAccion(nombre);
+    setError(null);
+    setAviso(null);
+    try {
+      await operacion();
+    } catch (err) {
+      setError(mensajeDeError(err));
+    } finally {
+      setAccion(null);
+    }
+  }
+
+  /** RN-13: cierra la jornada antes de la hora; cancela los turnos en espera y avisa a cada asociado. */
+  function cerrarJornada(v: VistaAgencia) {
+    if (!window.confirm(`¿Cerrar la jornada de ${v.nombre}? Hoy no recibirá más turnos, los que están en espera se cancelan y cada asociado recibe el aviso.`)) return;
+    return ejecutar('jornada', async () => {
+      const r = await agenciasAdminApi.cerrarJornada(v.id);
+      setRecarga((n) => n + 1);
+      if (r) setAviso(resumenCierre(r));
+    });
+  }
+
+  /** Deshace un cierre anticipado; los turnos ya cancelados no vuelven. */
+  function reabrirJornada(v: VistaAgencia) {
+    return ejecutar('jornada', async () => {
+      await agenciasAdminApi.reabrirJornada(v.id);
+      setRecarga((n) => n + 1);
+      setAviso('Jornada reabierta: la agencia vuelve a recibir turnos en su horario.');
+    });
+  }
+
+  function cambiarAgencia(v: VistaAgencia) {
+    if (v.activa && !window.confirm(`¿Cerrar ${v.nombre}? Deja de recibir turnos y los que están en espera hoy se cancelan.`)) return;
+    return ejecutar('agencia', async () => {
+      const nueva = await agenciasAdminApi.actualizarAgencia(v.id, !v.activa);
+      aplicar(nueva, v.activa ? 'Agencia cerrada: ya no recibe turnos y los de hoy en espera se cancelaron.' : 'Agencia abierta.');
+    });
+  }
 
   return (
     <main id="contenido" className="ancho">
@@ -71,22 +114,39 @@ export function GestionAgencia() {
           <div className="acciones" style={{ alignItems: 'center' }}>
             <p style={{ margin: 0 }}>
               <strong>{vista.nombre}</strong> · {vista.municipio}{' '}
-              <span className={`etiqueta ${vista.activa ? '' : 'etiqueta--inactivo'}`}>{vista.activa ? 'Atendiendo' : 'Cerrada'}</span>
+              <span className={`etiqueta ${vista.activa && !vista.jornadaCerrada ? '' : 'etiqueta--inactivo'}`}>
+                {!vista.activa ? 'Cerrada' : vista.jornadaCerrada ? 'Jornada cerrada' : 'Atendiendo'}
+              </span>
             </p>
+            {vista.jornadaCerrada ? (
+              vista.activa && (
+                <Boton variante="secundario" cargando={accion === 'jornada'} disabled={accion !== null} onClick={() => void reabrirJornada(vista)}>
+                  Reabrir la jornada
+                </Boton>
+              )
+            ) : (
+              <Boton variante="peligro" cargando={accion === 'jornada'} disabled={accion !== null} onClick={() => void cerrarJornada(vista)}>
+                Cerrar la jornada
+              </Boton>
+            )}
             {superadmin && (
               <Boton
                 variante={vista.activa ? 'peligro' : 'secundario'}
-                onClick={() =>
-                  void agenciasAdminApi
-                    .actualizarAgencia(vista.id, !vista.activa)
-                    .then((v) => aplicar(v, vista.activa ? 'Agencia cerrada: ya no recibe turnos.' : 'Agencia abierta.'))
-                    .catch((err: unknown) => setError(mensajeDeError(err)))
-                }
+                cargando={accion === 'agencia'}
+                disabled={accion !== null}
+                onClick={() => void cambiarAgencia(vista)}
               >
                 {vista.activa ? 'Cerrar agencia' : 'Abrir agencia'}
               </Boton>
             )}
           </div>
+        )}
+        {vista?.activa && (
+          <p className="texto-secundario">
+            {vista.jornadaCerrada
+              ? 'Hoy la agencia ya no recibe turnos. Si la cerraste por error, reábrela: los turnos ya cancelados no vuelven.'
+              : 'La jornada se cierra sola a la hora de cierre. Ciérrala antes si la agencia deja de atender hoy: los turnos en espera se cancelan y los ya llamados se terminan de atender.'}
+          </p>
         )}
         {error && <Aviso tipo="error">{error}</Aviso>}
         {aviso && <Aviso tipo="exito">{aviso}</Aviso>}

@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { errorDeValor } from './agenciasAdmin';
+import { errorDeValor, resumenCierre } from './agenciasAdmin';
+
+describe('RN-13: resultado del cierre de la jornada', () => {
+  it('cuenta los cancelados y los que siguen en atención', () => {
+    expect(resumenCierre({ cancelados: 3, siguenEnAtencion: 1 })).toBe(
+      'Jornada cerrada. 3 turnos en espera se cancelaron y cada asociado recibió el aviso. 1 turno ya llamado sigue en atención.',
+    );
+    expect(resumenCierre({ cancelados: 1, siguenEnAtencion: 0 })).toBe('Jornada cerrada. 1 turno en espera se canceló y cada asociado recibió el aviso.');
+    expect(resumenCierre({ cancelados: 0, siguenEnAtencion: 0 })).toBe('Jornada cerrada. No había turnos en espera.');
+  });
+});
 
 describe('RF-17: validación de reglas antes de enviar', () => {
   it('horas en punto o y media', () => {
