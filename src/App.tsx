@@ -2,6 +2,7 @@ import { Navigate, NavLink, Route, Routes, useNavigate } from 'react-router';
 import { menuPara, panelInicial } from './auth/permisos';
 import { RutaProtegida } from './auth/RutaProtegida';
 import { useSesion } from './auth/sesion';
+import { Auditoria } from './paginas/Auditoria';
 import { GestionAgencia } from './paginas/GestionAgencia';
 import { Indicadores } from './paginas/Indicadores';
 import { Ingresar } from './paginas/Ingresar';
@@ -76,6 +77,14 @@ export function App() {
           element={
             <RutaProtegida permitidos={['SUPERADMIN', 'ADMIN_AGENCIA']}>
               <GestionAgencia />
+            </RutaProtegida>
+          }
+        />
+        <Route
+          path="/auditoria"
+          element={
+            <RutaProtegida permitidos={['SUPERADMIN']}>
+              <Auditoria />
             </RutaProtegida>
           }
         />
