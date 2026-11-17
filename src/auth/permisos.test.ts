@@ -21,7 +21,9 @@ describe('PR-13: rutas por rol', () => {
   it('el menú solo muestra lo que el rol puede usar', () => {
     const rutas = (roles: Parameters<typeof menuPara>[0]) => menuPara(roles).map((m) => m.ruta);
     expect(rutas([{ rol: 'ASOCIADO' }])).toEqual(['/asociado', '/mi-cuenta']);
-    expect(rutas([{ rol: 'ADMIN_AGENCIA', agenciaId: 'a1' }])).toEqual(['/administracion', '/indicadores', '/funcionario', '/mi-cuenta']);
+    expect(rutas([{ rol: 'ADMIN_AGENCIA', agenciaId: 'a1' }])).toEqual(['/administracion', '/gestion-agencia', '/indicadores', '/funcionario', '/mi-cuenta']);
+    expect(menuPara([{ rol: 'ADMIN_AGENCIA', agenciaId: 'a1' }]).find((m) => m.ruta === '/gestion-agencia')?.texto).toBe('Mi agencia');
+    expect(menuPara([{ rol: 'SUPERADMIN' }]).find((m) => m.ruta === '/gestion-agencia')?.texto).toBe('Agencias');
     expect(rutas([{ rol: 'FUNCIONARIO', agenciaId: 'a1' }])).not.toContain('/indicadores');
   });
 });
