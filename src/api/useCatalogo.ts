@@ -19,6 +19,11 @@ function cargarCatalogo(): Promise<AgenciaCatalogo[]> {
   return enCurso;
 }
 
+/** Después de cambiar una agencia, la siguiente pantalla que use el catálogo lo vuelve a pedir. */
+export function olvidarCatalogo(): void {
+  enCurso = null;
+}
+
 export function useCatalogo() {
   const [agencias, setAgencias] = useState<AgenciaCatalogo[]>([]);
   const [cargando, setCargando] = useState(true);

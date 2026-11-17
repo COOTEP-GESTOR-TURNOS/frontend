@@ -418,3 +418,28 @@ main.ancho {
 .barra > span:last-child {
   position: relative;
 }
+
+/* --- Gestión de agencia (RF-17) --- */
+.entrada-corta {
+  width: 6.5rem;
+  min-height: var(--objetivo-tactil);
+  padding: var(--espacio-2) var(--espacio-3);
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio);
+  font: inherit;
+}
+/* El navegador muestra la hora con su formato local (a. m./p. m.): necesita más ancho */
+.entrada-corta[type='time'] {
+  width: 9.5rem;
+}
+.entrada-corta[aria-invalid='true'] {
+  border-color: var(--color-error);
+}
+.visualmente-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

@@ -23,6 +23,9 @@ export function panelInicial(roles: AsignacionRol[]): string {
 export function menuPara(roles: AsignacionRol[]): { ruta: string; texto: string }[] {
   const menu: { ruta: string; texto: string }[] = [];
   if (puedeAcceder(roles, ['SUPERADMIN', 'ADMIN_AGENCIA'])) menu.push({ ruta: '/administracion', texto: 'Administración' });
+  if (puedeAcceder(roles, ['SUPERADMIN', 'ADMIN_AGENCIA'])) {
+    menu.push({ ruta: '/gestion-agencia', texto: puedeAcceder(roles, ['SUPERADMIN']) ? 'Agencias' : 'Mi agencia' });
+  }
   if (puedeAcceder(roles, ['SUPERADMIN', 'ADMIN_AGENCIA'])) menu.push({ ruta: '/indicadores', texto: 'Indicadores' });
   if (puedeAcceder(roles, ['FUNCIONARIO', 'ADMIN_AGENCIA'])) menu.push({ ruta: '/funcionario', texto: 'Atención' });
   if (puedeAcceder(roles, ['ASOCIADO'])) menu.push({ ruta: '/asociado', texto: 'Mi turno' });
