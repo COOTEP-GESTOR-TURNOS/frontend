@@ -1,10 +1,13 @@
 import { FormEvent, useEffect, useState } from 'react';
+import { LuIdCard, LuKeyRound, LuSave } from 'react-icons/lu';
 import { authApi, minimoClave, type Perfil, TIPOS_DOCUMENTO, type TipoDocumento } from '../api/auth';
 import { mensajeDeError } from '../api/http';
 import { useSesion } from '../auth/sesion';
 import { Aviso } from '../componentes/Aviso';
 import { Boton } from '../componentes/Boton';
 import { Campo, CampoClave, Selector } from '../componentes/Campo';
+import { Cargando, Pagina } from '../componentes/Pagina';
+import { Tarjeta } from '../componentes/Tarjeta';
 
 /** Datos propios: completar el documento (cuentas de Google) y cambiar la contraseña. */
 export function MiCuenta() {
@@ -72,36 +75,42 @@ export function MiCuenta() {
     }
   }
 
-  if (!perfil) return <main id="contenido">{mensajeDatos ? <Aviso tipo="error">{mensajeDatos.texto}</Aviso> : <p role="status">Cargando…</p>}</main>;
+  if (!perfil) {
+    return <Pagina titulo="Mi cuenta">{mensajeDatos ? <Aviso tipo="error">{mensajeDatos.texto}</Aviso> : <Cargando />}</Pagina>;
+  }
 
   return (
-    <main id="contenido">
-      <section className="tarjeta">
-        <h2>Mi cuenta</h2>
-        <p className="texto-secundario">{perfil.email}</p>
-        {!perfil.perfilCompleto && <Aviso tipo="info">Completa tu documento para que tu agencia pueda identificarte.</Aviso>}
-        <form onSubmit={guardarDatos} noValidate>
+    <Pagina titulo="Mi cuenta" descripcion={perfil.email}>
+      <Tarjeta titulo="Datos personales" icono={LuIdCard}>
+        <form onSubmit={guardarDatos} noValidate className="flex flex-col gap-4">
+          {!perfil.perfilCompleto && <Aviso tipo="info">Completa tu documento para que tu agencia pueda identificarte.</Aviso>}
           <Campo etiqueta="Nombre completo" value={datos.nombre} onChange={(e) => setDatos({ ...datos, nombre: e.target.value })} />
-          <Selector etiqueta="Tipo de documento" value={datos.tipoDocumento} onChange={(e) => setDatos({ ...datos, tipoDocumento: e.target.value as TipoDocumento })}>
-            {TIPOS_DOCUMENTO.map((t) => (
-              <option key={t.valor} value={t.valor}>
-                {t.texto}
-              </option>
-            ))}
-          </Selector>
-          <Campo etiqueta="Número de documento" value={datos.numeroDocumento} onChange={(e) => setDatos({ ...datos, numeroDocumento: e.target.value })} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Selector etiqueta="Tipo de documento" value={datos.tipoDocumento} onChange={(e) => setDatos({ ...datos, tipoDocumento: e.target.value as TipoDocumento })}>
+              {TIPOS_DOCUMENTO.map((t) => (
+                <option key={t.valor} value={t.valor}>
+                  {t.texto}
+                </option>
+              ))}
+            </Selector>
+            <Campo etiqueta="Número de documento" value={datos.numeroDocumento} onChange={(e) => setDatos({ ...datos, numeroDocumento: e.target.value })} />
+          </div>
           <Campo etiqueta="Fecha de nacimiento" type="date" value={datos.fechaNacimiento} onChange={(e) => setDatos({ ...datos, fechaNacimiento: e.target.value })} />
           {mensajeDatos && <Aviso tipo={mensajeDatos.tipo}>{mensajeDatos.texto}</Aviso>}
-          <Boton type="submit" cargando={cargando === 'datos'}>
-            Guardar datos
-          </Boton>
+          <div className="flex justify-end">
+            <Boton type="submit" icono={LuSave} cargando={cargando === 'datos'}>
+              Guardar datos
+            </Boton>
+          </div>
         </form>
-      </section>
+      </Tarjeta>
 
-      <section className="tarjeta">
-        <h2>{perfil.tienePassword ? 'Cambiar contraseña' : 'Crear una contraseña'}</h2>
-        {!perfil.tienePassword && <p className="texto-secundario">Entras con Google. Si creas una contraseña, también podrás entrar con tu correo.</p>}
-        <form onSubmit={cambiarClave} noValidate>
+      <Tarjeta
+        titulo={perfil.tienePassword ? 'Cambiar contraseña' : 'Crear una contraseña'}
+        descripcion={perfil.tienePassword ? undefined : 'Entras con Google. Si creas una contraseña, también podrás entrar con tu correo.'}
+        icono={LuKeyRound}
+      >
+        <form onSubmit={cambiarClave} noValidate className="flex flex-col gap-4">
           {perfil.tienePassword && (
             <CampoClave etiqueta="Contraseña actual" autoComplete="current-password" value={claves.actual} onChange={(e) => setClaves({ ...claves, actual: e.target.value })} />
           )}
@@ -114,11 +123,13 @@ export function MiCuenta() {
           />
           <Campo etiqueta="Repite la contraseña" type="password" autoComplete="new-password" value={claves.confirmacion} onChange={(e) => setClaves({ ...claves, confirmacion: e.target.value })} />
           {mensajeClave && <Aviso tipo={mensajeClave.tipo}>{mensajeClave.texto}</Aviso>}
-          <Boton type="submit" cargando={cargando === 'clave'}>
-            Guardar contraseña
-          </Boton>
+          <div className="flex justify-end">
+            <Boton type="submit" icono={LuSave} cargando={cargando === 'clave'}>
+              Guardar contraseña
+            </Boton>
+          </div>
         </form>
-      </section>
-    </main>
+      </Tarjeta>
+    </Pagina>
   );
 }

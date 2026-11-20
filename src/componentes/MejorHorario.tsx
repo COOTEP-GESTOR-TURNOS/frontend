@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
+import { LuClock, LuSparkles } from 'react-icons/lu';
 import { mensajeDeError } from '../api/http';
 import { fechaColombia, type RecomendacionHorario, recomendacionesApi, textoEspera } from '../api/recomendaciones';
+import { Etiqueta } from './Etiqueta';
+import { Cargando } from './Pagina';
+import { Segmentado } from './Segmentado';
 
 const DIAS = [
   { valor: 0, texto: 'Hoy' },
@@ -32,44 +36,47 @@ export function MejorHorario({ agenciaId, servicioId }: { agenciaId: string; ser
     };
   }, [agenciaId, servicioId, dia]);
 
+  const vacio = (texto: string) => <p className="text-sm text-texto-secundario">{texto}</p>;
+
   return (
-    <section className="mejor-horario" aria-labelledby="titulo-mejor-horario">
-      <div className="mejor-horario__cabecera">
-        <h3 id="titulo-mejor-horario">Mejor hora para ir</h3>
-        <div className="segmentado" role="group" aria-label="Día">
-          {DIAS.map((d) => (
-            <button key={d.valor} type="button" aria-pressed={dia === d.valor} onClick={() => setDia(d.valor)}>
-              {d.texto}
-            </button>
-          ))}
-        </div>
+    <section className="rounded-xl border border-borde bg-fondo p-4" aria-labelledby="titulo-mejor-horario">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h3 id="titulo-mejor-horario" className="inline-flex items-center gap-2 text-sm">
+          <LuSparkles aria-hidden className="size-4 text-dorado-oscuro" />
+          Mejor hora para ir
+        </h3>
+        <Segmentado etiqueta="Día" opciones={DIAS} valor={dia} alCambiar={setDia} />
       </div>
 
-      {cargando && <p role="status" className="texto-secundario">Buscando las franjas con menos espera…</p>}
-      {!cargando && error && <p className="texto-secundario">{error}</p>}
-      {!cargando && datos && !datos.disponible && (
-        <p className="texto-secundario">La recomendación no está disponible ahora. Puedes pedir tu turno igual.</p>
-      )}
-      {!cargando && datos?.disponible && datos.franjas.length === 0 && (
-        <p className="texto-secundario">
-          {dia === 0 ? 'Hoy ya no quedan franjas con datos suficientes. Mira las de mañana.' : 'Aún no hay historial suficiente para ese día.'}
-        </p>
-      )}
+      {cargando && <Cargando texto="Buscando las franjas con menos espera…" />}
+      {!cargando && error && vacio(error)}
+      {!cargando && datos && !datos.disponible && vacio('La recomendación no está disponible ahora. Puedes pedir tu turno igual.')}
+      {!cargando &&
+        datos?.disponible &&
+        datos.franjas.length === 0 &&
+        vacio(dia === 0 ? 'Hoy ya no quedan franjas con datos suficientes. Mira las de mañana.' : 'Aún no hay historial suficiente para ese día.')}
       {!cargando && datos?.disponible && datos.franjas.length > 0 && (
-        <ol className="lista-franjas">
-          {datos.franjas.map((f) => (
-            <li key={f.desde}>
-              <strong>
+        <ol className="flex flex-col gap-2">
+          {datos.franjas.map((f, i) => (
+            <li
+              key={f.desde}
+              className={`flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-3 py-2.5 text-sm ${
+                i === 0 ? 'border-dorado/60 bg-dorado-suave' : 'border-borde bg-superficie'
+              }`}
+            >
+              <LuClock aria-hidden className={`size-4 shrink-0 ${i === 0 ? 'text-dorado-oscuro' : 'text-texto-secundario'}`} />
+              <strong className="font-semibold tabular-nums">
                 {f.desde} a {f.hasta}
               </strong>
+              {i === 0 && <Etiqueta tono="dorado">Recomendada</Etiqueta>}
               <span>{textoEspera(f.esperaMedianaMin)}</span>
-              <span className="texto-secundario">según {f.turnos} turnos anteriores</span>
+              <span className="text-texto-secundario sm:ml-auto">según {f.turnos} turnos anteriores</span>
             </li>
           ))}
         </ol>
       )}
       {datos && (
-        <p className="texto-secundario mejor-horario__pie">
+        <p className="mt-3 text-xs text-texto-secundario">
           Horario de atención: {datos.horario.apertura} a {datos.horario.cierre}. Es la espera mediana de días parecidos, no una promesa.
         </p>
       )}

@@ -1,10 +1,12 @@
 import { FormEvent, useState } from 'react';
+import { LuMailCheck, LuUserPlus } from 'react-icons/lu';
 import { Link } from 'react-router';
 import { authApi, TIPOS_DOCUMENTO, type TipoDocumento } from '../api/auth';
 import { mensajeDeError } from '../api/http';
 import { Aviso } from '../componentes/Aviso';
 import { Boton } from '../componentes/Boton';
 import { Campo, CampoClave, Selector } from '../componentes/Campo';
+import { PantallaAcceso } from '../componentes/Pagina';
 
 /** Registro público de asociados. Las cuentas con privilegios las crea un administrador. */
 export function Registro() {
@@ -44,25 +46,25 @@ export function Registro() {
 
   if (enviado) {
     return (
-      <main id="contenido">
-        <section className="tarjeta">
-          <h2>Revisa tu correo</h2>
+      <PantallaAcceso titulo="Revisa tu correo" icono={LuMailCheck}>
+        <div className="flex flex-col gap-5">
           <Aviso tipo="exito">
             Enviamos un enlace a <strong>{enviado}</strong>. Ábrelo para confirmar tu correo; después podrás ingresar.
           </Aviso>
-          <Link to="/ingresar">Ir a ingresar</Link>
-        </section>
-      </main>
+          <Link to="/ingresar" className="enlace text-center text-sm">
+            Ir a ingresar
+          </Link>
+        </div>
+      </PantallaAcceso>
     );
   }
 
   return (
-    <main id="contenido">
-      <section className="tarjeta">
-        <h2>Crear cuenta de asociado</h2>
-        <form onSubmit={registrar} noValidate>
-          <Campo etiqueta="Nombre completo" autoComplete="name" required value={datos.nombre} onChange={cambiar('nombre')} />
-          <Campo etiqueta="Correo" type="email" autoComplete="email" required value={datos.email} onChange={cambiar('email')} />
+    <PantallaAcceso titulo="Crear cuenta de asociado" descripcion="Con tu cuenta pides turno desde la web o el teléfono." icono={LuUserPlus} ancha>
+      <form onSubmit={registrar} noValidate className="flex flex-col gap-4">
+        <Campo etiqueta="Nombre completo" autoComplete="name" required value={datos.nombre} onChange={cambiar('nombre')} />
+        <Campo etiqueta="Correo" type="email" autoComplete="email" required value={datos.email} onChange={cambiar('email')} />
+        <div className="grid gap-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <Selector etiqueta="Tipo de documento" value={datos.tipoDocumento} onChange={cambiar('tipoDocumento')}>
             {TIPOS_DOCUMENTO.map((t) => (
               <option key={t.valor} value={t.valor}>
@@ -71,30 +73,33 @@ export function Registro() {
             ))}
           </Selector>
           <Campo etiqueta="Número de documento" inputMode="numeric" required value={datos.numeroDocumento} onChange={cambiar('numeroDocumento')} />
-          <Campo
-            etiqueta="Fecha de nacimiento (opcional)"
-            type="date"
-            ayuda="Permite reconocer la atención preferencial de los adultos mayores."
-            value={datos.fechaNacimiento}
-            onChange={cambiar('fechaNacimiento')}
-          />
-          <CampoClave
-            etiqueta="Contraseña"
-            autoComplete="new-password"
-            ayuda="Mínimo 15 caracteres. Una frase fácil de recordar es más segura que una clave corta."
-            value={datos.clave}
-            onChange={cambiar('clave')}
-          />
-          <Campo etiqueta="Repite la contraseña" type="password" autoComplete="new-password" value={confirmacion} onChange={(e) => setConfirmacion(e.target.value)} />
-          {error && <Aviso tipo="error">{error}</Aviso>}
-          <div className="acciones">
-            <Boton type="submit" cargando={cargando}>
-              Crear cuenta
-            </Boton>
-            <Link to="/ingresar">Ya tengo cuenta</Link>
-          </div>
-        </form>
-      </section>
-    </main>
+        </div>
+        <Campo
+          etiqueta="Fecha de nacimiento (opcional)"
+          type="date"
+          ayuda="Permite reconocer la atención preferencial de los adultos mayores."
+          value={datos.fechaNacimiento}
+          onChange={cambiar('fechaNacimiento')}
+        />
+        <CampoClave
+          etiqueta="Contraseña"
+          autoComplete="new-password"
+          ayuda="Mínimo 15 caracteres. Una frase fácil de recordar es más segura que una clave corta."
+          value={datos.clave}
+          onChange={cambiar('clave')}
+        />
+        <Campo etiqueta="Repite la contraseña" type="password" autoComplete="new-password" value={confirmacion} onChange={(e) => setConfirmacion(e.target.value)} />
+        {error && <Aviso tipo="error">{error}</Aviso>}
+        <Boton type="submit" icono={LuUserPlus} cargando={cargando} className="w-full">
+          Crear cuenta
+        </Boton>
+        <p className="text-center text-sm text-texto-secundario">
+          ¿Ya tienes cuenta?{' '}
+          <Link to="/ingresar" className="enlace">
+            Ingresa
+          </Link>
+        </p>
+      </form>
+    </PantallaAcceso>
   );
 }

@@ -1,10 +1,11 @@
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
 // En desarrollo, Vite reenvía la API y el socket al backend principal (mismo origen, sin CORS).
 // En Docker lo hace nginx (nginx.conf).
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
     proxy: {

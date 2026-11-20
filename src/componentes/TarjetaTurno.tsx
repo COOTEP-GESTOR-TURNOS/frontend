@@ -1,5 +1,7 @@
+import { LuMapPin, LuUsersRound } from 'react-icons/lu';
 import type { Turno } from '../api/turnos';
 import { ChipEstado } from './ChipEstado';
+import { Etiqueta } from './Etiqueta';
 
 function textoPosicion(turno: Turno): string {
   if (turno.estado === 'LLAMADO') return 'Acércate a la ventanilla';
@@ -14,18 +16,35 @@ function textoPosicion(turno: Turno): string {
 /** `lugar`: agencia y servicio del turno según el catálogo, por ejemplo «Caja · Agencia Mocoa». */
 export function TarjetaTurno({ turno, titulo = 'Tu turno', lugar }: { turno: Turno; titulo?: string; lugar?: string }) {
   return (
-    <section className="tarjeta tarjeta--activa" aria-labelledby={`turno-${turno.id}`}>
-      <p className="texto-secundario" id={`turno-${turno.id}`}>
-        {titulo}
-      </p>
-      <p className="codigo-turno">{turno.codigo ?? '—'}</p>
-      {lugar && <p className="texto-secundario">{lugar}</p>}
-      <div className="acciones">
-        <ChipEstado estado={turno.estado} />
-        {turno.tipoAtencion === 'PREFERENCIAL' && <span className="chip insignia-preferencial">Atención preferencial</span>}
+    <section
+      className="overflow-hidden rounded-xl border border-dorado/50 bg-superficie shadow-sm"
+      aria-labelledby={`turno-${turno.id}`}
+    >
+      {/* El número del turno se ve como el logo: placa verde con letras doradas (5,4:1). */}
+      <div className="sobre-verde bg-primario px-5 py-6 text-center sm:px-6">
+        <p className="text-sm font-medium text-white/85" id={`turno-${turno.id}`}>
+          {titulo}
+        </p>
+        <p className="mt-1 text-5xl font-bold tracking-tight text-dorado-claro tabular-nums">{turno.codigo ?? '—'}</p>
+        {lugar && (
+          <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-white/85">
+            <LuMapPin aria-hidden className="size-4" />
+            {lugar}
+          </p>
+        )}
       </div>
-      {/* Región viva: el lector de pantalla anuncia los cambios de posición sin interrumpir */}
-      <p aria-live="polite">{textoPosicion(turno)}</p>
+      <div aria-hidden className="franja-dorada h-1" />
+      <div className="flex flex-col items-center gap-3 px-5 py-4 sm:px-6">
+        <div className="flex flex-wrap justify-center gap-2">
+          <ChipEstado estado={turno.estado} />
+          {turno.tipoAtencion === 'PREFERENCIAL' && <Etiqueta tono="preferencial">Atención preferencial</Etiqueta>}
+        </div>
+        {/* Región viva: el lector de pantalla anuncia los cambios de posición sin interrumpir */}
+        <p aria-live="polite" className="inline-flex items-center gap-2 font-medium text-texto">
+          <LuUsersRound aria-hidden className="size-4 text-texto-secundario" />
+          {textoPosicion(turno)}
+        </p>
+      </div>
     </section>
   );
 }

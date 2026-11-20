@@ -1,10 +1,21 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
+import { LuArrowLeft, LuBadgeCheck, LuKeyRound, LuMail, LuMailCheck, LuSend } from 'react-icons/lu';
 import { Link, useSearchParams } from 'react-router';
 import { authApi } from '../api/auth';
 import { mensajeDeError } from '../api/http';
 import { Aviso } from '../componentes/Aviso';
 import { Boton } from '../componentes/Boton';
 import { Campo, CampoClave } from '../componentes/Campo';
+import { Cargando, PantallaAcceso } from '../componentes/Pagina';
+
+function VolverAIngresar({ texto = 'Volver a ingresar' }: { texto?: string }) {
+  return (
+    <Link to="/ingresar" className="enlace inline-flex items-center justify-center gap-1.5 text-sm">
+      <LuArrowLeft aria-hidden className="size-4" />
+      {texto}
+    </Link>
+  );
+}
 
 /** RF-04 (1/2): pide el enlace. La respuesta es la misma exista o no la cuenta. */
 export function Recuperar() {
@@ -28,29 +39,23 @@ export function Recuperar() {
   }
 
   return (
-    <main id="contenido">
-      <section className="tarjeta">
-        <h2>Recuperar contraseña</h2>
-        {mensaje ? (
-          <>
-            <Aviso tipo="exito">{mensaje} El enlace vence en 15 minutos y sirve una sola vez.</Aviso>
-            <Link to="/ingresar">Volver a ingresar</Link>
-          </>
-        ) : (
-          <form onSubmit={enviar} noValidate>
-            <p className="texto-secundario">Te enviaremos un enlace para elegir una contraseña nueva.</p>
-            <Campo etiqueta="Correo" type="email" autoComplete="email" required value={correo} onChange={(e) => setCorreo(e.target.value)} />
-            {error && <Aviso tipo="error">{error}</Aviso>}
-            <div className="acciones">
-              <Boton type="submit" cargando={cargando}>
-                Enviar enlace
-              </Boton>
-              <Link to="/ingresar">Volver</Link>
-            </div>
-          </form>
-        )}
-      </section>
-    </main>
+    <PantallaAcceso titulo="Recuperar contraseña" descripcion="Te enviaremos un enlace para elegir una contraseña nueva." icono={LuKeyRound}>
+      {mensaje ? (
+        <div className="flex flex-col gap-5">
+          <Aviso tipo="exito">{mensaje} El enlace vence en 15 minutos y sirve una sola vez.</Aviso>
+          <VolverAIngresar />
+        </div>
+      ) : (
+        <form onSubmit={enviar} noValidate className="flex flex-col gap-4">
+          <Campo etiqueta="Correo" type="email" icono={LuMail} autoComplete="email" required value={correo} onChange={(e) => setCorreo(e.target.value)} />
+          {error && <Aviso tipo="error">{error}</Aviso>}
+          <Boton type="submit" icono={LuSend} cargando={cargando} className="w-full">
+            Enviar enlace
+          </Boton>
+          <VolverAIngresar texto="Volver" />
+        </form>
+      )}
+    </PantallaAcceso>
   );
 }
 
@@ -84,36 +89,33 @@ export function Restablecer() {
   }
 
   return (
-    <main id="contenido">
-      <section className="tarjeta">
-        <h2>{activar ? 'Activa tu cuenta' : 'Elige una contraseña nueva'}</h2>
-        {listo ? (
-          <>
-            <Aviso tipo="exito">
-              {activar ? 'Tu cuenta quedó activa.' : 'Tu contraseña cambió y cerramos las sesiones abiertas.'} Ya puedes ingresar.
-            </Aviso>
-            <Link to="/ingresar">Ir a ingresar</Link>
-          </>
-        ) : !token ? (
-          <Aviso tipo="error">El enlace está incompleto. Pide uno nuevo desde «¿Olvidaste tu contraseña?».</Aviso>
-        ) : (
-          <form onSubmit={enviar} noValidate>
-            <CampoClave
-              etiqueta="Contraseña nueva"
-              autoComplete="new-password"
-              ayuda="Mínimo 15 caracteres (8 si tu cuenta usa verificación en dos pasos). Puedes usar una frase."
-              value={clave}
-              onChange={(e) => setClave(e.target.value)}
-            />
-            <Campo etiqueta="Repite la contraseña" type="password" autoComplete="new-password" value={confirmacion} onChange={(e) => setConfirmacion(e.target.value)} />
-            {error && <Aviso tipo="error">{error}</Aviso>}
-            <Boton type="submit" cargando={cargando}>
-              Guardar contraseña
-            </Boton>
-          </form>
-        )}
-      </section>
-    </main>
+    <PantallaAcceso titulo={activar ? 'Activa tu cuenta' : 'Elige una contraseña nueva'} icono={activar ? LuBadgeCheck : LuKeyRound}>
+      {listo ? (
+        <div className="flex flex-col gap-5">
+          <Aviso tipo="exito">
+            {activar ? 'Tu cuenta quedó activa.' : 'Tu contraseña cambió y cerramos las sesiones abiertas.'} Ya puedes ingresar.
+          </Aviso>
+          <VolverAIngresar texto="Ir a ingresar" />
+        </div>
+      ) : !token ? (
+        <Aviso tipo="error">El enlace está incompleto. Pide uno nuevo desde «¿Olvidaste tu contraseña?».</Aviso>
+      ) : (
+        <form onSubmit={enviar} noValidate className="flex flex-col gap-4">
+          <CampoClave
+            etiqueta="Contraseña nueva"
+            autoComplete="new-password"
+            ayuda="Mínimo 15 caracteres (8 si tu cuenta usa verificación en dos pasos). Puedes usar una frase."
+            value={clave}
+            onChange={(e) => setClave(e.target.value)}
+          />
+          <Campo etiqueta="Repite la contraseña" type="password" autoComplete="new-password" value={confirmacion} onChange={(e) => setConfirmacion(e.target.value)} />
+          {error && <Aviso tipo="error">{error}</Aviso>}
+          <Boton type="submit" cargando={cargando} className="w-full">
+            Guardar contraseña
+          </Boton>
+        </form>
+      )}
+    </PantallaAcceso>
   );
 }
 
@@ -138,14 +140,13 @@ export function VerificarCorreo() {
   }, [parametros]);
 
   return (
-    <main id="contenido">
-      <section className="tarjeta">
-        <h2>Confirmación de correo</h2>
-        {estado === 'cargando' && <p role="status">Confirmando…</p>}
+    <PantallaAcceso titulo="Confirmación de correo" icono={LuMailCheck}>
+      <div className="flex flex-col gap-5">
+        {estado === 'cargando' && <Cargando texto="Confirmando…" />}
         {estado === 'ok' && <Aviso tipo="exito">Tu correo quedó confirmado. Ya puedes ingresar.</Aviso>}
         {estado === 'error' && <Aviso tipo="error">{error} Ingresa con tu correo y contraseña para recibir otro enlace.</Aviso>}
-        {estado !== 'cargando' && <Link to="/ingresar">Ir a ingresar</Link>}
-      </section>
-    </main>
+        {estado !== 'cargando' && <VolverAIngresar texto="Ir a ingresar" />}
+      </div>
+    </PantallaAcceso>
   );
 }

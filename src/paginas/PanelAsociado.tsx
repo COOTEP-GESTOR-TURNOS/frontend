@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { LuCheck, LuTicket, LuTicketPlus, LuX } from 'react-icons/lu';
 import type { Socket } from 'socket.io-client';
 import { agenciasAbiertas, describirFila, servicioParaAgencia } from '../api/catalogo';
 import { ErrorApi } from '../api/http';
@@ -6,9 +7,12 @@ import { avisoDeCambio, Turno, turnosApi } from '../api/turnos';
 import { useCatalogo } from '../api/useCatalogo';
 import { useSesion } from '../auth/sesion';
 import { Aviso } from '../componentes/Aviso';
-import { Boton } from '../componentes/Boton';
+import { Boton, BotonEnlace } from '../componentes/Boton';
+import { Casilla } from '../componentes/Campo';
 import { MejorHorario } from '../componentes/MejorHorario';
+import { Cargando, Pagina } from '../componentes/Pagina';
 import { type Fila, SelectorFila } from '../componentes/SelectorFila';
+import { Tarjeta } from '../componentes/Tarjeta';
 import { TarjetaTurno } from '../componentes/TarjetaTurno';
 import { conectarTiempoReal } from '../tiempo-real/socket';
 
@@ -100,61 +104,57 @@ export function PanelAsociado() {
   }
 
   return (
-    <main id="contenido">
+    <Pagina titulo="Mi turno" descripcion={turno ? 'Te avisamos aquí cuando cambie tu posición.' : 'Elige la agencia y el servicio, y te avisamos cuando sea tu turno.'}>
       {aviso && <Aviso tipo={aviso.includes('ausente') ? 'error' : 'info'}>{aviso}</Aviso>}
-      {error && (
-        <p className="mensaje-error" role="alert">
-          {error}
-        </p>
-      )}
+      {error && <Aviso tipo="error">{error}</Aviso>}
 
       {turno ? (
-        <>
+        <div className="flex flex-col gap-4">
           <TarjetaTurno turno={turno} lugar={describirFila(catalogo.agencias, turno.agenciaId, turno.servicioId)} />
-          <div className="acciones">
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
             {turno.estado === 'PROXIMO' && (
-              <Boton cargando={accion === 'confirmar'} onClick={() => void ejecutar('confirmar', () => turnosApi.confirmar(turno.id))}>
+              <Boton icono={LuCheck} cargando={accion === 'confirmar'} onClick={() => void ejecutar('confirmar', () => turnosApi.confirmar(turno.id))}>
                 Confirmo que voy
               </Boton>
             )}
             {['SOLICITADO', 'EN_ESPERA', 'PROXIMO'].includes(turno.estado) && (
-              <Boton variante="peligro" cargando={accion === 'cancelar'} onClick={cancelar}>
+              <Boton variante="peligro" icono={LuX} cargando={accion === 'cancelar'} onClick={cancelar}>
                 Cancelar turno
               </Boton>
             )}
           </div>
-        </>
+        </div>
       ) : (
-        <section className="tarjeta">
-          <h2>Pedir turno</h2>
-          <form onSubmit={pedirTurno}>
-            {catalogo.cargando && <p role="status">Cargando agencias…</p>}
+        <Tarjeta titulo="Pedir turno" icono={LuTicket}>
+          <form onSubmit={pedirTurno} className="flex flex-col gap-5">
+            {catalogo.cargando && <Cargando texto="Cargando agencias…" />}
             {catalogo.error && (
               <Aviso tipo="error">
                 {catalogo.error}{' '}
-                <button type="button" className="enlace-boton" onClick={catalogo.reintentar}>
-                  Reintentar
-                </button>
+                <BotonEnlace onClick={catalogo.reintentar}>Reintentar</BotonEnlace>
               </Aviso>
             )}
             {!catalogo.cargando && !catalogo.error && abiertas.length === 0 && (
               <Aviso tipo="info">Ninguna agencia está atendiendo en este momento.</Aviso>
             )}
-            {abiertas.length > 0 && <SelectorFila agencias={abiertas} valor={fila} alCambiar={setFila} />}
+            {abiertas.length > 0 && (
+              <div className="grid gap-4 sm:grid-cols-2">
+                <SelectorFila agencias={abiertas} valor={fila} alCambiar={setFila} />
+              </div>
+            )}
             {fila.agenciaId && fila.servicioId && <MejorHorario agenciaId={fila.agenciaId} servicioId={fila.servicioId} />}
-            <div className="campo">
-              <label>
-                <input type="checkbox" checked={preferencial} onChange={(e) => setPreferencial(e.target.checked)} /> Necesito
-                atención preferencial (gestante o persona con discapacidad)
-              </label>
-              <span className="texto-secundario">Los adultos mayores se detectan solos. El funcionario lo verificará al llamarte.</span>
-            </div>
-            <Boton type="submit" cargando={accion === 'pedir'} disabled={!fila.agenciaId || !fila.servicioId}>
+            <Casilla
+              etiqueta="Necesito atención preferencial (gestante o persona con discapacidad)"
+              ayuda="Los adultos mayores se detectan solos. El funcionario lo verificará al llamarte."
+              checked={preferencial}
+              onChange={(e) => setPreferencial(e.target.checked)}
+            />
+            <Boton type="submit" icono={LuTicketPlus} cargando={accion === 'pedir'} disabled={!fila.agenciaId || !fila.servicioId} className="w-full sm:w-auto sm:self-end">
               Pedir turno
             </Boton>
           </form>
-        </section>
+        </Tarjeta>
       )}
-    </main>
+    </Pagina>
   );
 }
