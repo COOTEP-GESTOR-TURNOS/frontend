@@ -3,8 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 import { App } from './App';
 import { ProveedorSesion } from './auth/sesion';
-import './estilos/tokens.css';
-import './estilos/base.css';
+import './estilos/app.css';
 
 createRoot(document.getElementById('raiz')!).render(
   <StrictMode>

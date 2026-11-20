@@ -9,7 +9,8 @@ interface Props {
   roles: Rol[];
   /** Agencias en las que puede asignar; undefined = todas (superadministrador). */
   agenciasPermitidas?: string[];
-  valor: AsignacionRol;
+  /** null: todavía no se eligió rol (al asignar otro rol a un usuario existente). */
+  valor: AsignacionRol | null;
   alCambiar: (valor: AsignacionRol) => void;
 }
 
@@ -18,25 +19,30 @@ interface Props {
  * funcionario. Se usa al crear un usuario y al asignarle otro rol.
  */
 export function SelectorAmbito({ agencias, roles, agenciasPermitidas, valor, alCambiar }: Props) {
-  const conAgencia = valor.rol === 'ADMIN_AGENCIA' || valor.rol === 'FUNCIONARIO';
+  const conAgencia = valor?.rol === 'ADMIN_AGENCIA' || valor?.rol === 'FUNCIONARIO';
   const opcionesAgencia = agenciasPermitidas ? agencias.filter((a) => agenciasPermitidas.includes(a.id)) : agencias;
-  const agencia = agencias.find((a) => a.id === valor.agenciaId);
+  const agencia = agencias.find((a) => a.id === valor?.agenciaId);
 
   function cambiarRol(rol: Rol) {
     const requiereAgencia = rol === 'ADMIN_AGENCIA' || rol === 'FUNCIONARIO';
-    alCambiar({ rol, ...(requiereAgencia ? { agenciaId: valor.agenciaId ?? opcionesAgencia[0]?.id } : {}) });
+    alCambiar({ rol, ...(requiereAgencia ? { agenciaId: valor?.agenciaId ?? opcionesAgencia[0]?.id } : {}) });
   }
 
   return (
     <>
-      <Selector etiqueta="Rol" value={valor.rol} onChange={(e) => cambiarRol(e.target.value as Rol)}>
+      <Selector etiqueta="Rol" value={valor?.rol ?? ''} onChange={(e) => cambiarRol(e.target.value as Rol)}>
+        {!valor && (
+          <option value="" disabled>
+            Elige un rol
+          </option>
+        )}
         {roles.map((r) => (
           <option key={r} value={r}>
             {NOMBRE_ROL[r]}
           </option>
         ))}
       </Selector>
-      {conAgencia && (
+      {valor && conAgencia && (
         <Selector
           etiqueta="Agencia"
           value={valor.agenciaId ?? ''}
@@ -50,7 +56,7 @@ export function SelectorAmbito({ agencias, roles, agenciasPermitidas, valor, alC
           ))}
         </Selector>
       )}
-      {valor.rol === 'FUNCIONARIO' && agencia && (
+      {valor?.rol === 'FUNCIONARIO' && agencia && (
         <Selector
           etiqueta="Servicio"
           ayuda="Sin servicio, atiende todas las filas de la agencia."

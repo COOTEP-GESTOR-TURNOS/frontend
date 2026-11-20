@@ -1,12 +1,15 @@
 import { FormEvent, useEffect, useState } from 'react';
+import { FcGoogle } from 'react-icons/fc';
+import { LuCode, LuKeyRound, LuLock, LuLogIn, LuMail, LuShieldCheck, LuSmartphone } from 'react-icons/lu';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { authApi, type Paso, type ResultadoIngreso } from '../api/auth';
 import { ErrorApi, mensajeDeError } from '../api/http';
 import { panelInicial } from '../auth/permisos';
 import { useSesion } from '../auth/sesion';
 import { Aviso } from '../componentes/Aviso';
-import { Boton } from '../componentes/Boton';
+import { Boton, BotonEnlace, claseBoton } from '../componentes/Boton';
 import { Campo, CampoClave } from '../componentes/Campo';
+import { Cargando, PantallaAcceso } from '../componentes/Pagina';
 
 const ERRORES_GOOGLE: Record<string, string> = {
   access_denied: 'Cancelaste el inicio con Google.',
@@ -44,16 +47,12 @@ export function Ingresar() {
   }
 
   const errorGoogle = parametros.get('error');
-  if (cargando) return <p className="texto-secundario" role="status" style={{ textAlign: 'center' }}>Cargando…</p>;
+  if (cargando) return <Cargando centrado />;
 
-  return (
-    <main id="contenido">
-      {reto ? (
-        <PasoPendiente reto={reto} alTerminar={continuar} alVencer={() => setReto(null)} />
-      ) : (
-        <Credenciales alIngresar={continuar} errorInicial={errorGoogle ? ERRORES_GOOGLE[errorGoogle] ?? 'No se pudo iniciar sesión con Google.' : null} />
-      )}
-    </main>
+  return reto ? (
+    <PasoPendiente reto={reto} alTerminar={continuar} alVencer={() => setReto(null)} />
+  ) : (
+    <Credenciales alIngresar={continuar} errorInicial={errorGoogle ? ERRORES_GOOGLE[errorGoogle] ?? 'No se pudo iniciar sesión con Google.' : null} />
   );
 }
 
@@ -89,38 +88,63 @@ function Credenciales({ alIngresar, errorInicial }: { alIngresar: (r: ResultadoI
   }
 
   return (
-    <section className="tarjeta">
-      <h2>Ingresar</h2>
-      <form onSubmit={ingresar} noValidate>
-        <Campo etiqueta="Correo" type="email" autoComplete="username" required value={correo} onChange={(e) => setCorreo(e.target.value)} />
-        <CampoClave etiqueta="Contraseña" autoComplete="current-password" required value={clave} onChange={(e) => setClave(e.target.value)} />
+    <PantallaAcceso titulo="Ingresar" descripcion="Pide y sigue tu turno sin esperar en la sala.">
+      <form onSubmit={ingresar} noValidate className="flex flex-col gap-4">
+        <Campo etiqueta="Correo" type="email" icono={LuMail} autoComplete="username" required value={correo} onChange={(e) => setCorreo(e.target.value)} />
+        <CampoClave etiqueta="Contraseña" icono={LuLock} autoComplete="current-password" required value={clave} onChange={(e) => setClave(e.target.value)} />
+        <div className="-mt-1 flex justify-end">
+          <Link to="/recuperar" className="enlace text-sm">
+            ¿Olvidaste tu contraseña?
+          </Link>
+        </div>
         {error && <Aviso tipo="error">{error}</Aviso>}
         {sinVerificar && (
-          <p>
-            <button type="button" className="enlace-boton" onClick={() => void reenviar()}>
-              Enviar de nuevo el enlace de confirmación
-            </button>
-          </p>
+          <BotonEnlace className="text-sm" onClick={() => void reenviar()}>
+            Enviar de nuevo el enlace de confirmación
+          </BotonEnlace>
         )}
         {aviso && <Aviso tipo="exito">{aviso}</Aviso>}
-        <div className="acciones">
-          <Boton type="submit" cargando={cargando}>
-            Ingresar
-          </Boton>
-          <Link to="/recuperar">¿Olvidaste tu contraseña?</Link>
-        </div>
+        <Boton type="submit" icono={LuLogIn} cargando={cargando} className="w-full">
+          Ingresar
+        </Boton>
       </form>
-      <p className="separador">o</p>
-      <a className="boton boton--secundario" href="/api/v1/auth/oidc/google/inicio?cliente=web">
+
+      <p className="my-5 flex items-center gap-3 text-xs text-texto-secundario uppercase before:h-px before:flex-1 before:bg-borde after:h-px after:flex-1 after:bg-borde">
+        o
+      </p>
+      <a className={claseBoton('secundario', 'w-full')} href="/api/v1/auth/oidc/google/inicio?cliente=web">
+        <FcGoogle aria-hidden className="size-5" />
         Continuar con Google
       </a>
-      <p style={{ marginTop: 'var(--espacio-5)' }}>
-        ¿Eres asociado y no tienes cuenta? <Link to="/registro">Crea tu cuenta</Link>
+
+      <p className="mt-6 text-center text-sm text-texto-secundario">
+        ¿Eres asociado y no tienes cuenta?{' '}
+        <Link to="/registro" className="enlace">
+          Crea tu cuenta
+        </Link>
       </p>
       <TokenDesarrollo />
-    </section>
+    </PantallaAcceso>
   );
 }
+
+const ENCABEZADOS = {
+  CAMBIAR_CLAVE: {
+    titulo: 'Cambia tu contraseña temporal',
+    descripcion: 'Es tu primer ingreso. Elige una contraseña que solo tú conozcas.',
+    icono: LuKeyRound,
+  },
+  CONFIGURAR_MFA: {
+    titulo: 'Activa la verificación en dos pasos',
+    descripcion: 'Tu rol administra datos de la cooperativa, así que además de la contraseña pedimos un código de tu teléfono.',
+    icono: LuSmartphone,
+  },
+  VERIFICAR_MFA: {
+    titulo: 'Verificación en dos pasos',
+    descripcion: 'Escribe el código de 6 dígitos que muestra tu app autenticadora.',
+    icono: LuShieldCheck,
+  },
+} as const;
 
 /** Pasos que pide el backend antes de abrir la sesión: clave temporal y MFA (RF-03). */
 function PasoPendiente({ reto, alTerminar, alVencer }: { reto: Reto; alTerminar: (r: ResultadoIngreso | null) => void; alVencer: () => void }) {
@@ -162,39 +186,23 @@ function PasoPendiente({ reto, alTerminar, alVencer }: { reto: Reto; alTerminar:
   }
 
   return (
-    <section className="tarjeta">
-      {reto.paso === 'CAMBIAR_CLAVE' && (
-        <>
-          <h2>Cambia tu contraseña temporal</h2>
-          <p className="texto-secundario">Es tu primer ingreso. Elige una contraseña que solo tú conozcas.</p>
-        </>
-      )}
+    <PantallaAcceso {...ENCABEZADOS[reto.paso]}>
       {reto.paso === 'CONFIGURAR_MFA' && (
-        <>
-          <h2>Activa la verificación en dos pasos</h2>
-          <p>
-            Tu rol administra datos de la cooperativa, así que además de la contraseña pedimos un código de tu teléfono.
-            Escanea el código QR con Google Authenticator, Microsoft Authenticator u otra app compatible.
-          </p>
+        <div className="mb-5 flex flex-col items-center gap-3 text-center">
+          <p className="text-sm">Escanea el código QR con Google Authenticator, Microsoft Authenticator u otra app compatible.</p>
           {mfa ? (
             <>
-              <img className="qr-mfa" src={mfa.qr} alt="Código QR para la app autenticadora" />
-              <p className="texto-secundario">Si no puedes escanearlo, escribe esta clave en la app:</p>
-              <p className="secreto-mfa">{mfa.secreto}</p>
+              <img className="size-48 rounded-lg border border-borde p-2" src={mfa.qr} alt="Código QR para la app autenticadora" />
+              <p className="text-sm text-texto-secundario">Si no puedes escanearlo, escribe esta clave en la app:</p>
+              <p className="w-full rounded-lg bg-fondo px-3 py-2 font-mono text-sm break-all">{mfa.secreto}</p>
             </>
           ) : (
-            !error && <p role="status">Generando el código QR…</p>
+            !error && <Cargando texto="Generando el código QR…" />
           )}
-        </>
-      )}
-      {reto.paso === 'VERIFICAR_MFA' && (
-        <>
-          <h2>Verificación en dos pasos</h2>
-          <p>Escribe el código de 6 dígitos que muestra tu app autenticadora.</p>
-        </>
+        </div>
       )}
 
-      <form onSubmit={enviar} noValidate>
+      <form onSubmit={enviar} noValidate className="flex flex-col gap-4">
         {reto.paso === 'CAMBIAR_CLAVE' ? (
           <>
             <CampoClave
@@ -207,28 +215,27 @@ function PasoPendiente({ reto, alTerminar, alVencer }: { reto: Reto; alTerminar:
             <Campo etiqueta="Repite la contraseña" type="password" autoComplete="new-password" value={confirmacion} onChange={(e) => setConfirmacion(e.target.value)} />
           </>
         ) : (
-          <div className="codigo-mfa">
-            <Campo
-              etiqueta="Código de 6 dígitos"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={7}
-              value={codigo}
-              onChange={(e) => setCodigo(e.target.value.replace(/[^\d ]/g, ''))}
-            />
-          </div>
+          <Campo
+            etiqueta="Código de 6 dígitos"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={7}
+            className="text-center font-mono text-xl tracking-[0.3em]"
+            value={codigo}
+            onChange={(e) => setCodigo(e.target.value.replace(/[^\d ]/g, ''))}
+          />
         )}
         {error && <Aviso tipo="error">{error}</Aviso>}
-        <div className="acciones">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Boton variante="fantasma" onClick={alVencer}>
+            Cancelar
+          </Boton>
           <Boton type="submit" cargando={cargando}>
             {reto.paso === 'CAMBIAR_CLAVE' ? 'Guardar y continuar' : 'Verificar'}
           </Boton>
-          <Boton variante="secundario" onClick={alVencer}>
-            Cancelar
-          </Boton>
         </div>
       </form>
-    </section>
+    </PantallaAcceso>
   );
 }
 
@@ -240,25 +247,32 @@ function TokenDesarrollo() {
   const [error, setError] = useState<string | null>(null);
   if (!import.meta.env.DEV) return null;
   return (
-    <details style={{ marginTop: 'var(--espacio-5)' }}>
-      <summary>Modo desarrollo: usar un token de prueba</summary>
-      <div className="campo">
-        <label htmlFor="token">Token (npm run token:dev en el backend)</label>
-        <textarea id="token" rows={3} value={token} onChange={(e) => setToken(e.target.value)} />
+    <details className="mt-6 rounded-lg border border-dashed border-borde px-4 py-3 text-sm">
+      <summary className="flex cursor-pointer items-center gap-2 text-texto-secundario">
+        <LuCode aria-hidden className="size-4" />
+        Modo desarrollo: usar un token de prueba
+      </summary>
+      <div className="mt-3 flex flex-col gap-3">
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="token" className="font-medium">
+            Token (npm run token:dev en el backend)
+          </label>
+          <textarea id="token" rows={3} className="entrada font-mono text-xs" value={token} onChange={(e) => setToken(e.target.value)} />
+        </div>
+        {error && <Aviso tipo="error">{error}</Aviso>}
+        <Boton
+          variante="secundario"
+          onClick={() => {
+            try {
+              navegar(panelInicial(iniciarConToken(token).roles));
+            } catch (err) {
+              setError((err as Error).message);
+            }
+          }}
+        >
+          Usar token
+        </Boton>
       </div>
-      {error && <Aviso tipo="error">{error}</Aviso>}
-      <Boton
-        variante="secundario"
-        onClick={() => {
-          try {
-            navegar(panelInicial(iniciarConToken(token).roles));
-          } catch (err) {
-            setError((err as Error).message);
-          }
-        }}
-      >
-        Usar token
-      </Boton>
     </details>
   );
 }

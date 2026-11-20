@@ -1,7 +1,8 @@
 import { useEffect, useId, useState } from 'react';
+import { LuRotateCcw, LuSave } from 'react-icons/lu';
 import { errorDeValor, TEXTO_ORIGEN, type VistaParametro } from '../api/agenciasAdmin';
 import { mensajeDeError } from '../api/http';
-import { Boton } from './Boton';
+import { Boton, BotonEnlace } from './Boton';
 
 interface Props {
   parametro: VistaParametro;
@@ -37,39 +38,48 @@ export function FilaParametro({ parametro: p, editable, alGuardar, alRestablecer
   const id = `${useId()}-${p.clave}`;
   return (
     <tr>
-      <th scope="row">
+      <th scope="row" className="min-w-48">
         <label htmlFor={id}>{p.nombre}</label>
-        <div className="texto-secundario">{p.descripcion}</div>
+        <div className="mt-0.5 font-normal text-texto-secundario">{p.descripcion}</div>
       </th>
-      <td>
-        <input
-          id={id}
-          className="entrada-corta"
-          type={p.tipo === 'hora' ? 'time' : 'number'}
-          step={p.tipo === 'hora' ? 1800 : 1}
-          min={p.min}
-          max={p.max}
-          value={valor}
-          disabled={!editable}
-          aria-invalid={local || error ? true : undefined}
-          aria-describedby={`${id}-nota`}
-          onChange={(e) => setValor(e.target.value)}
-        />{' '}
-        {p.unidad}
-        <div id={`${id}-nota`} className={local || error ? 'campo__error' : 'campo__ayuda'}>
+      <td className="min-w-56">
+        <div className="flex items-center gap-2">
+          <input
+            id={id}
+            className={`entrada ${p.tipo === 'hora' ? 'w-38' : 'w-26'}`}
+            type={p.tipo === 'hora' ? 'time' : 'number'}
+            step={p.tipo === 'hora' ? 1800 : 1}
+            min={p.min}
+            max={p.max}
+            value={valor}
+            disabled={!editable}
+            aria-invalid={local || error ? true : undefined}
+            aria-describedby={`${id}-nota`}
+            onChange={(e) => setValor(e.target.value)}
+          />
+          <span className="text-texto-secundario">{p.unidad}</span>
+        </div>
+        <div id={`${id}-nota`} className={`mt-1 ${local || error ? 'text-error' : 'text-texto-secundario'}`}>
           {local ?? error ?? (editable ? TEXTO_ORIGEN[p.origen] : 'Lo define el superadministrador para todas las agencias')}
         </div>
       </td>
       <td>
         {editable && (
-          <div className="acciones">
-            <Boton variante="secundario" cargando={accion === 'guardar'} disabled={valor === p.valor || Boolean(local)} onClick={() => void ejecutar('guardar', () => alGuardar(valor))}>
+          <div className="flex flex-wrap items-center gap-3">
+            <Boton
+              variante="secundario"
+              icono={LuSave}
+              cargando={accion === 'guardar'}
+              disabled={valor === p.valor || Boolean(local)}
+              onClick={() => void ejecutar('guardar', () => alGuardar(valor))}
+            >
               Guardar
             </Boton>
             {alRestablecer && p.origen === 'AGENCIA' && (
-              <button type="button" className="enlace-boton" disabled={accion !== null} onClick={() => void ejecutar('restablecer', alRestablecer)}>
+              <BotonEnlace className="inline-flex items-center gap-1.5 text-sm" disabled={accion !== null} onClick={() => void ejecutar('restablecer', alRestablecer)}>
+                <LuRotateCcw aria-hidden className="size-4" />
                 Usar el valor global
-              </button>
+              </BotonEnlace>
             )}
           </div>
         )}
