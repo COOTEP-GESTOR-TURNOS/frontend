@@ -3,7 +3,7 @@ import { LuCheck, LuTicket, LuTicketPlus, LuX } from 'react-icons/lu';
 import type { Socket } from 'socket.io-client';
 import { agenciasAbiertas, describirFila, servicioParaAgencia } from '../api/catalogo';
 import { ErrorApi } from '../api/http';
-import { avisoDeCambio, Turno, turnosApi } from '../api/turnos';
+import { avisoDeCambio, mensajeConfirmado, mensajeTurnoActivo, Turno, turnosApi } from '../api/turnos';
 import { useCatalogo } from '../api/useCatalogo';
 import { useSesion } from '../auth/sesion';
 import { Aviso } from '../componentes/Aviso';
@@ -15,6 +15,23 @@ import { type Fila, SelectorFila } from '../componentes/SelectorFila';
 import { Tarjeta } from '../componentes/Tarjeta';
 import { TarjetaTurno } from '../componentes/TarjetaTurno';
 import { conectarTiempoReal } from '../tiempo-real/socket';
+
+/** El backend no informa si el turno ya se confirmó: se recuerda en el navegador para no volver a pedirlo. */
+const CLAVE_CONFIRMADO = 'cootep_turno_confirmado';
+function leerConfirmado(): string | null {
+  try {
+    return localStorage.getItem(CLAVE_CONFIRMADO);
+  } catch {
+    return null;
+  }
+}
+function guardarConfirmado(id: string): void {
+  try {
+    localStorage.setItem(CLAVE_CONFIRMADO, id);
+  } catch {
+    /* sin almacenamiento: el mensaje dura mientras la página esté abierta */
+  }
+}
 
 function mensajeDe(error: unknown): string {
   return error instanceof ErrorApi ? error.problema.detail ?? error.message : 'No se pudo completar la acción';
@@ -31,6 +48,7 @@ export function PanelAsociado() {
   const [accion, setAccion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [confirmadoId, setConfirmadoId] = useState<string | null>(leerConfirmado);
   const claveIdempotencia = useRef(crypto.randomUUID());
   const socket = useRef<Socket | null>(null);
 
@@ -41,12 +59,16 @@ export function PanelAsociado() {
     setFila({ agenciaId, servicioId: servicioParaAgencia(abiertas, agenciaId, undefined) ?? '' });
   }, [abiertas, fila.agenciaId]);
 
-  const refrescar = useCallback(async () => {
+  /** Vuelve a leer el turno activo; devuelve el que quedó en pantalla (null si no hay). */
+  const refrescar = useCallback(async (): Promise<Turno | null> => {
     try {
-      setTurno(await turnosApi.miTurno());
+      const actual = await turnosApi.miTurno();
+      setTurno(actual);
+      return actual;
     } catch (err) {
       if (err instanceof ErrorApi && err.status === 404) setTurno(null);
       else setError(mensajeDe(err));
+      return null;
     }
   }, []);
 
@@ -81,7 +103,10 @@ export function PanelAsociado() {
       await operacion();
       await refrescar();
     } catch (err) {
-      setError(mensajeDe(err));
+      // Ya había otro turno activo: se muestra ese turno (con «Cancelar turno») en vez del formulario.
+      const activo = err instanceof ErrorApi && err.codigo === 'TURNO_ACTIVO' ? await refrescar() : null;
+      if (activo) setAviso(mensajeTurnoActivo(activo, describirFila(catalogo.agencias, activo.agenciaId, activo.servicioId)));
+      else setError(mensajeDe(err));
     } finally {
       setAccion(null);
     }
@@ -97,8 +122,21 @@ export function PanelAsociado() {
     });
   }
 
+  function confirmar(id: string) {
+    void ejecutar('confirmar', async () => {
+      await turnosApi.confirmar(id);
+      guardarConfirmado(id);
+      setConfirmadoId(id);
+      setAviso(null); // el aviso de «confirma que vas» ya no aplica
+    });
+  }
+
+  // Confirmado y aún esperando: el mensaje se actualiza con la posición en vivo.
+  const confirmado = turno !== null && turno.id === confirmadoId && ['SOLICITADO', 'EN_ESPERA', 'PROXIMO'].includes(turno.estado);
+
   function cancelar() {
     if (turno && window.confirm('¿Cancelar tu turno? Perderás tu lugar en la fila.')) {
+      setAviso(null); // el aviso del turno (por ejemplo, «Ya tienes el turno…») deja de aplicar
       void ejecutar('cancelar', () => turnosApi.cancelar(turno.id));
     }
   }
@@ -107,13 +145,18 @@ export function PanelAsociado() {
     <Pagina titulo="Mi turno" descripcion={turno ? 'Te avisamos aquí cuando cambie tu posición.' : 'Elige la agencia y el servicio, y te avisamos cuando sea tu turno.'}>
       {aviso && <Aviso tipo={aviso.includes('ausente') ? 'error' : 'info'}>{aviso}</Aviso>}
       {error && <Aviso tipo="error">{error}</Aviso>}
+      {confirmado && (
+        <Aviso tipo="exito" estilo="marcado">
+          {mensajeConfirmado(turno)}
+        </Aviso>
+      )}
 
       {turno ? (
         <div className="flex flex-col gap-4">
-          <TarjetaTurno turno={turno} lugar={describirFila(catalogo.agencias, turno.agenciaId, turno.servicioId)} />
+          <TarjetaTurno turno={turno} confirmado={confirmado} lugar={describirFila(catalogo.agencias, turno.agenciaId, turno.servicioId)} />
           <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
-            {turno.estado === 'PROXIMO' && (
-              <Boton icono={LuCheck} cargando={accion === 'confirmar'} onClick={() => void ejecutar('confirmar', () => turnosApi.confirmar(turno.id))}>
+            {turno.estado === 'PROXIMO' && !confirmado && (
+              <Boton icono={LuCheck} cargando={accion === 'confirmar'} onClick={() => confirmar(turno.id)}>
                 Confirmo que voy
               </Boton>
             )}

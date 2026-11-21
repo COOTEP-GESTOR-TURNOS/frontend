@@ -57,11 +57,6 @@ export function Indicadores() {
     <Pagina
       ancho
       titulo={tablero ? titulo : 'Indicadores'}
-      descripcion={
-        tablero
-          ? `Del ${tablero.desde} al ${tablero.hasta}. Los turnos llegan al tablero cuando corre la carga de la analítica.`
-          : 'Atención, ausencias y esperas de cada agencia.'
-      }
       acciones={<Segmentado etiqueta="Periodo" opciones={PERIODOS} valor={dias} alCambiar={setDias} />}
     >
       {superadmin && (

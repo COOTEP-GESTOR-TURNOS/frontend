@@ -97,11 +97,6 @@ export function Auditoria() {
     <Pagina
       ancho
       titulo={persona ? `Actividad de ${persona.nombre}` : 'Auditoría'}
-      descripcion={
-        persona
-          ? `Todo lo que registró en ${dia.slice(0, 7)}, en cualquier agencia.`
-          : 'Registros de solo lectura guardados en Cassandra. Nadie puede editarlos ni borrarlos.'
-      }
       acciones={
         persona && (
           <Boton variante="secundario" icono={LuArrowLeft} onClick={() => setPersona(null)}>

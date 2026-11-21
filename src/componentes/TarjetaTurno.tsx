@@ -13,8 +13,11 @@ function textoPosicion(turno: Turno): string {
   return `${turno.personasDelante} ${turno.personasDelante === 1 ? 'persona' : 'personas'} delante${espera}`;
 }
 
-/** `lugar`: agencia y servicio del turno según el catálogo, por ejemplo «Caja · Agencia Mocoa». */
-export function TarjetaTurno({ turno, titulo = 'Tu turno', lugar }: { turno: Turno; titulo?: string; lugar?: string }) {
+/**
+ * `lugar`: agencia y servicio del turno según el catálogo, por ejemplo «Caja · Agencia Mocoa».
+ * `confirmado`: el asociado ya confirmó que va (cambia la etiqueta del estado Próximo).
+ */
+export function TarjetaTurno({ turno, titulo = 'Tu turno', lugar, confirmado = false }: { turno: Turno; titulo?: string; lugar?: string; confirmado?: boolean }) {
   return (
     <section
       className="overflow-hidden rounded-xl border border-dorado/50 bg-superficie shadow-sm"
@@ -36,7 +39,7 @@ export function TarjetaTurno({ turno, titulo = 'Tu turno', lugar }: { turno: Tur
       <div aria-hidden className="franja-dorada h-1" />
       <div className="flex flex-col items-center gap-3 px-5 py-4 sm:px-6">
         <div className="flex flex-wrap justify-center gap-2">
-          <ChipEstado estado={turno.estado} />
+          <ChipEstado estado={turno.estado} confirmado={confirmado} />
           {turno.tipoAtencion === 'PREFERENCIAL' && <Etiqueta tono="preferencial">Atención preferencial</Etiqueta>}
         </div>
         {/* Región viva: el lector de pantalla anuncia los cambios de posición sin interrumpir */}

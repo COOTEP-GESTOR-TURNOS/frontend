@@ -15,8 +15,11 @@ const ESTADOS: Record<EstadoTurno, { texto: string; tono: Tono; icono: IconType 
   AUSENTE: { texto: 'No se presentó', tono: 'error', icono: LuUserX },
 };
 
-export function ChipEstado({ estado }: { estado: EstadoTurno }) {
-  const { texto, tono, icono } = ESTADOS[estado];
+/** Próximo y ya confirmado: deja de pedir la confirmación y lo dice en verde, como el mensaje de arriba. */
+const PROXIMO_CONFIRMADO = { texto: 'Ya casi: confirmaste que vas', tono: 'exito' as Tono, icono: LuCircleCheck };
+
+export function ChipEstado({ estado, confirmado = false }: { estado: EstadoTurno; confirmado?: boolean }) {
+  const { texto, tono, icono } = estado === 'PROXIMO' && confirmado ? PROXIMO_CONFIRMADO : ESTADOS[estado];
   return (
     <Etiqueta tono={tono} icono={icono}>
       {texto}
