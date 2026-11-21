@@ -1,7 +1,10 @@
 import { pedir } from './http';
+import { agregarFiltros, type FiltrosAnalitica, type RangoAnalitica } from './filtrosAnalitica';
 import { fechaColombia } from './recomendaciones';
 
 export interface ValoresIndicadores {
+  solicitados?: number | null;
+  pendientes?: number | null;
   atendidos: number;
   cancelados: number;
   ausentes: number;
@@ -26,9 +29,8 @@ export interface TableroIndicadores {
 
 /** RF-19: GET /api/v1/indicadores. El backend aplica el ámbito: el directivo solo recibe su agencia. */
 export const indicadoresApi = {
-  consultar: (filtro: { desde: string; hasta: string; agenciaId?: string }) => {
-    const consulta = new URLSearchParams({ desde: filtro.desde, hasta: filtro.hasta });
-    if (filtro.agenciaId) consulta.set('agenciaId', filtro.agenciaId);
+  consultar: ({ desde, hasta, ...filtros }: RangoAnalitica & FiltrosAnalitica) => {
+    const consulta = agregarFiltros(new URLSearchParams({ desde, hasta }), filtros);
     return pedir<TableroIndicadores>('GET', `/indicadores?${consulta.toString()}`);
   },
 };
