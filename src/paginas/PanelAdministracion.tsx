@@ -17,6 +17,7 @@ import {
   LuUserPlus,
   LuUsers,
   LuUserX,
+  LuX,
 } from 'react-icons/lu';
 import {
   administracionApi,
@@ -40,6 +41,8 @@ import { SelectorAmbito } from '../componentes/SelectorAmbito';
 import { Tarjeta } from '../componentes/Tarjeta';
 
 const TODOS_LOS_ROLES: Rol[] = ['SUPERADMIN', 'ADMIN_AGENCIA', 'FUNCIONARIO', 'ASOCIADO'];
+/** Roles que el administrador de agencia puede usar en el filtro de la lista. */
+const ROLES_DE_AGENCIA: Rol[] = ['ADMIN_AGENCIA', 'FUNCIONARIO'];
 
 /** Inicial del nombre para el avatar de la lista. */
 function inicial(nombre: string): string {
@@ -141,7 +144,7 @@ export function PanelAdministracion() {
               onChange={(e) => setFiltro((f) => ({ ...f, rol: (e.target.value || undefined) as Rol | undefined, pagina: 1 }))}
             >
               <option value="">Todos</option>
-              {TODOS_LOS_ROLES.map((r) => (
+              {(superadmin ? TODOS_LOS_ROLES : ROLES_DE_AGENCIA).map((r) => (
                 <option key={r} value={r}>
                   {NOMBRE_ROL[r]}
                 </option>
@@ -266,6 +269,7 @@ export function PanelAdministracion() {
               agenciasPermitidas={superadmin ? undefined : propias}
               describirRol={describirRol}
               alActualizar={alActualizar}
+              alCerrar={() => setSeleccionado(null)}
             />
           )}
           {!creando && !seleccionado && (
@@ -368,12 +372,15 @@ function Ficha({
   agenciasPermitidas,
   describirRol,
   alActualizar,
+  alCerrar,
 }: PropsAmbito & {
   ficha: FichaUsuario;
   actor: AsignacionRol[];
   actorId: string;
   describirRol: (r: AsignacionRol) => string;
   alActualizar: (f: FichaUsuario) => void;
+  /** Cierra la ficha sin guardar lo que se estaba eligiendo. */
+  alCerrar: () => void;
 }) {
   // Sin rol elegido al abrir la ficha: «Asignar rol» solo aparece cuando el administrador elige uno.
   const [ambito, setAmbito] = useState<AsignacionRol | null>(null);
@@ -404,6 +411,11 @@ function Ficha({
   return (
     <Tarjeta
       titulo={ficha.nombre}
+      acciones={
+        <Boton variante="fantasma" icono={LuX} onClick={alCerrar} aria-label={`Cerrar la ficha de ${ficha.nombre}`}>
+          Cerrar
+        </Boton>
+      }
       descripcion={
         <>
           {ficha.email}

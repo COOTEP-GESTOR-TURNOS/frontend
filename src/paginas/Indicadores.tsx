@@ -96,7 +96,6 @@ export function Indicadores() {
     <Pagina
       ancho
       titulo={agenciaId === null ? 'Indicadores' : titulo}
-      descripcion={periodo && periodo.desde <= periodo.hasta ? `Del ${periodo.desde} al ${periodo.hasta}` : undefined}
       acciones={<Segmentado etiqueta="Periodo" opciones={PERIODOS} valor={dias} alCambiar={setDias} />}
     >
       {agenciaId !== null && (

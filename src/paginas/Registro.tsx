@@ -88,7 +88,7 @@ export function Registro() {
           value={datos.clave}
           onChange={cambiar('clave')}
         />
-        <Campo etiqueta="Repite la contraseña" type="password" autoComplete="new-password" value={confirmacion} onChange={(e) => setConfirmacion(e.target.value)} />
+        <CampoClave etiqueta="Repite la contraseña" autoComplete="new-password" value={confirmacion} onChange={(e) => setConfirmacion(e.target.value)} />
         {error && <Aviso tipo="error">{error}</Aviso>}
         <Boton type="submit" icono={LuUserPlus} cargando={cargando} className="w-full">
           Crear cuenta
