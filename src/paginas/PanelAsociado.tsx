@@ -16,23 +16,6 @@ import { Tarjeta } from '../componentes/Tarjeta';
 import { TarjetaTurno } from '../componentes/TarjetaTurno';
 import { conectarTiempoReal } from '../tiempo-real/socket';
 
-/** El backend no informa si el turno ya se confirmó: se recuerda en el navegador para no volver a pedirlo. */
-const CLAVE_CONFIRMADO = 'cootep_turno_confirmado';
-function leerConfirmado(): string | null {
-  try {
-    return localStorage.getItem(CLAVE_CONFIRMADO);
-  } catch {
-    return null;
-  }
-}
-function guardarConfirmado(id: string): void {
-  try {
-    localStorage.setItem(CLAVE_CONFIRMADO, id);
-  } catch {
-    /* sin almacenamiento: el mensaje dura mientras la página esté abierta */
-  }
-}
-
 function mensajeDe(error: unknown): string {
   return error instanceof ErrorApi ? error.problema.detail ?? error.message : 'No se pudo completar la acción';
 }
@@ -48,7 +31,6 @@ export function PanelAsociado() {
   const [accion, setAccion] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
-  const [confirmadoId, setConfirmadoId] = useState<string | null>(leerConfirmado);
   const claveIdempotencia = useRef(crypto.randomUUID());
   const socket = useRef<Socket | null>(null);
 
@@ -125,14 +107,12 @@ export function PanelAsociado() {
   function confirmar(id: string) {
     void ejecutar('confirmar', async () => {
       await turnosApi.confirmar(id);
-      guardarConfirmado(id);
-      setConfirmadoId(id);
       setAviso(null); // el aviso de «confirma que vas» ya no aplica
     });
   }
 
   // Confirmado y aún esperando: el mensaje se actualiza con la posición en vivo.
-  const confirmado = turno !== null && turno.id === confirmadoId && ['SOLICITADO', 'EN_ESPERA', 'PROXIMO'].includes(turno.estado);
+  const confirmado = turno !== null && turno.confirmado && ['SOLICITADO', 'EN_ESPERA', 'PROXIMO'].includes(turno.estado);
 
   function cancelar() {
     if (turno && window.confirm('¿Cancelar tu turno? Perderás tu lugar en la fila.')) {

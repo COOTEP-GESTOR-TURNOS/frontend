@@ -20,6 +20,12 @@ describe('S1-06: aviso al asociado cuando su turno cambia solo', () => {
 });
 
 describe('confirmación de asistencia', () => {
+  it('a quien ya confirmó no le pide confirmar otra vez, en ningún dispositivo', () => {
+    expect(avisoDeCambio({ estado: 'PROXIMO', codigo: 'C-014', confirmado: true })).toBeNull();
+    expect(avisoDeCambio({ estado: 'PROXIMO', codigo: 'C-014', confirmado: false })).toMatch(/Confirma que vas/);
+    expect(avisoDeCambio({ estado: 'LLAMADO', codigo: 'C-014', confirmado: true })).toMatch(/ventanilla/);
+  });
+
   it('dice cuántas personas faltan antes del turno', () => {
     expect(mensajeConfirmado({ personasDelante: 4 })).toBe('Confirmaste que vas. Faltan 4 personas antes de tu turno.');
     expect(mensajeConfirmado({ personasDelante: 1 })).toBe('Confirmaste que vas. Falta 1 persona antes de tu turno.');
