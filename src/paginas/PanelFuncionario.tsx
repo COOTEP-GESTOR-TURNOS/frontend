@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { LuBadgeCheck, LuCircleCheck, LuCircleX, LuHeadset, LuMegaphone, LuPlay, LuUserX } from 'react-icons/lu';
 import { describirFila, servicioParaAgencia } from '../api/catalogo';
-import { ErrorApi } from '../api/http';
+import { ErrorApi, mensajeDeError } from '../api/http';
 import { Turno, turnosApi } from '../api/turnos';
 import { useCatalogo } from '../api/useCatalogo';
 import { useSesion } from '../auth/sesion';
@@ -29,6 +29,22 @@ export function PanelFuncionario() {
   const [accion, setAccion] = useState<string | null>(null);
   const [mensaje, setMensaje] = useState<string | null>(null);
 
+  // El servidor sabe qué turno tiene este funcionario: se recupera al recargar o volver a la pantalla.
+  useEffect(() => {
+    let vigente = true;
+    turnosApi
+      .enVentanilla()
+      .then((abierto) => {
+        if (!vigente || !abierto) return;
+        setActual((previo) => previo ?? abierto);
+        setServicioId(abierto.servicioId); // el siguiente llamado sale de esa misma fila
+      })
+      .catch((err: unknown) => vigente && setMensaje(mensajeDeError(err)));
+    return () => {
+      vigente = false;
+    };
+  }, []);
+
   const ejecutar = useCallback(async (nombre: string, operacion: () => Promise<Turno | null>) => {
     setAccion(nombre);
     setMensaje(null);
@@ -38,6 +54,8 @@ export function PanelFuncionario() {
       setActual(resultado);
     } catch (err) {
       setMensaje(err instanceof ErrorApi ? err.problema.detail ?? err.message : 'No se pudo completar la acción');
+      // El turno pudo cambiar sin esta pantalla (venció, lo cerró el sistema o sigue abierto): se relee.
+      await turnosApi.enVentanilla().then(setActual, () => undefined);
     } finally {
       setAccion(null);
     }
