@@ -58,7 +58,7 @@ export function Indicadores() {
   const agenciaConsulta = filtros.listos ? agenciaId : null;
   const servicioId = servicio?.id;
   const colaboradorId = colaborador?.id;
-  const { datos: mensual, cargando, error, recargar } = useTableroMensual(
+  const { datos: mensual, cargando, actualizando, error, recargar } = useTableroMensual(
     mes, agenciaConsulta, servicioId, dias === 'mes' ? colaboradorId : undefined,
   );
   const [alterno, setAlterno] = useState<{ clave: string; datos?: TableroIndicadores; error?: string } | null>(null);
@@ -124,7 +124,7 @@ export function Indicadores() {
       {!cargandoAgencias && !errorCatalogo && agenciaId === null && <Aviso>No hay agencias disponibles en tu ámbito.</Aviso>}
       {filtros.error && <Aviso tipo="error">{filtros.error} <BotonEnlace onClick={filtros.reintentar}>Reintentar</BotonEnlace></Aviso>}
       {error && <Aviso tipo="error">{error} <BotonEnlace onClick={recargar}>Reintentar</BotonEnlace></Aviso>}
-      {agenciaId !== null && (filtros.cargando || cargando || (agenciaConsulta !== null && dias !== 'mes' && !consultaAlterna)) && <Cargando texto="Cargando indicadores…" />}
+      {agenciaId !== null && (filtros.cargando || (cargando && !mensual) || (agenciaConsulta !== null && dias !== 'mes' && !consultaAlterna)) && <Cargando texto="Cargando indicadores…" />}
       {dias !== 'mes' && consultaAlterna?.error && (
         <Aviso tipo="error">{consultaAlterna.error} <BotonEnlace onClick={() => setRevision((actual) => actual + 1)}>Reintentar</BotonEnlace></Aviso>
       )}
@@ -132,7 +132,8 @@ export function Indicadores() {
         <Aviso>Datos simulados.{corte && ` ${etiquetaCorte} ${horaCorte(corte)} (hora de Colombia).`}</Aviso>
       )}
       {total && (
-        <>
+        // Al cambiar de mes se ven las cifras anteriores atenuadas hasta que llegan las nuevas.
+        <div className={`flex flex-col gap-6 motion-safe:transition-opacity ${dias === 'mes' && actualizando ? 'opacity-50' : ''}`} aria-busy={dias === 'mes' && actualizando}>
           <Resumen valores={total} />
           {filas.length > 1 && <Comparacion agencias={filas} />}
           {filas.some((a) => !a.disponible) && (
@@ -140,9 +141,9 @@ export function Indicadores() {
               Faltan datos de {filas.filter((a) => !a.disponible).map((a) => a.nombre).join(', ')} en el total.
             </Aviso>
           )}
-        </>
+        </div>
       )}
-      {agenciaId !== null && <CalendarioDemanda key={agenciaId} agenciaId={agenciaId} hoy={hoy} mes={mes} cambiarMes={setMes} datos={mensual?.calendario ?? null} recargar={recargar} alcance={alcanceCalendario} />}
+      {agenciaId !== null && <CalendarioDemanda key={agenciaId} agenciaId={agenciaId} hoy={hoy} mes={mes} cambiarMes={setMes} datos={mensual?.calendario ?? null} recargar={recargar} alcance={alcanceCalendario} actualizando={actualizando} />}
     </Pagina>
   );
 }

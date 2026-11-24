@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react';
-import { LuCalendarDays, LuChevronLeft, LuChevronRight } from 'react-icons/lu';
+import { LuCalendarCheck, LuCalendarDays, LuChevronLeft, LuChevronRight, LuLoaderCircle } from 'react-icons/lu';
 import {
   type CalendarioDemanda as DatosCalendario,
   type DatosEvento,
@@ -21,6 +21,7 @@ import { mensajeDeError } from '../api/http';
 import { Aviso } from './Aviso';
 import { Boton } from './Boton';
 import { Campo, Selector } from './Campo';
+import { useConfirmacion } from './Confirmacion';
 import { Tarjeta } from './Tarjeta';
 
 const SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -39,9 +40,12 @@ interface Props {
   cambiarMes: (mes: string) => void;
   recargar: () => void;
   alcance?: string;
+  /** Llegan los datos de otro mes: se sigue mostrando el anterior, atenuado, para no mover la página. */
+  actualizando?: boolean;
 }
 
-export function CalendarioDemanda({ agenciaId, hoy, mes, datos, cambiarMes, recargar, alcance }: Props) {
+export function CalendarioDemanda({ agenciaId, hoy, mes, datos, cambiarMes, recargar, alcance, actualizando = false }: Props) {
+  const [dialogo, confirmar] = useConfirmacion();
   const [fechaElegida, setFechaElegida] = useState('');
   const [formulario, setFormulario] = useState<FormularioEvento | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -97,27 +101,46 @@ export function CalendarioDemanda({ agenciaId, hoy, mes, datos, cambiarMes, reca
     void cambiarEvento(operacion, fecha, id ? 'Evento actualizado.' : 'Evento registrado.');
   }
 
-  function eliminar(evento: EventoAgencia) {
+  async function eliminar(evento: EventoAgencia) {
     if (!agenciaId || guardando) return;
-    if (!window.confirm(`¿Eliminar ${TIPOS_EVENTO[evento.tipo].toLowerCase()} del ${evento.fecha}?`)) return;
+    const nombre = TIPOS_EVENTO[evento.tipo].toLowerCase();
+    const ok = await confirmar({
+      titulo: `¿Eliminar ${nombre}?`,
+      mensaje: `Se quitará ${nombre} del ${nombreFecha(evento.fecha)} y la estimación de demanda dejará de tenerlo en cuenta.`,
+      confirmar: 'Sí, eliminar',
+      peligro: true,
+    });
+    if (!ok) return;
     void cambiarEvento(() => demandaApi.eliminarEvento(agenciaId, evento.id), evento.fecha, 'Evento eliminado.');
   }
 
+  const mesActual = hoy.slice(0, 7);
+
   return (
-    <Tarjeta titulo="Demanda de turnos" descripcion={alcance || undefined} icono={LuCalendarDays}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h4 className="capitalize" aria-live="polite">{nombreMes(mes)}</h4>
-        <div className="flex gap-2">
-          <Boton variante="secundario" icono={LuChevronLeft} className="px-3" aria-label="Mes anterior" disabled={guardando} onClick={() => irAMes(mesDesplazado(mes, -1))} />
-          <Boton variante="secundario" disabled={guardando} onClick={() => irAMes(hoy.slice(0, 7))}>Hoy</Boton>
-          <Boton variante="secundario" icono={LuChevronRight} className="px-3" aria-label="Mes siguiente" disabled={guardando} onClick={() => irAMes(mesDesplazado(mes, 1))} />
+    <Tarjeta titulo="Demanda de turnos" descripcion={alcance || undefined} icono={LuCalendarDays} aria-busy={actualizando}>
+
+      <div className="flex flex-col gap-4">
+        {/* Navegación: el mes entre sus flechas; volver al mes actual va aparte y solo cuando hace falta */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Boton variante="secundario" icono={LuChevronLeft} className="px-3" aria-label="Mes anterior" disabled={guardando} onClick={() => irAMes(mesDesplazado(mes, -1))} />
+            <h4 className="min-w-40 text-center text-lg first-letter:uppercase" aria-live="polite">
+              {nombreMes(mes)}
+            </h4>
+            <Boton variante="secundario" icono={LuChevronRight} className="px-3" aria-label="Mes siguiente" disabled={guardando} onClick={() => irAMes(mesDesplazado(mes, 1))} />
+            {actualizando && <LuLoaderCircle role="status" aria-label="Cargando el mes" className="size-4 text-texto-secundario motion-safe:animate-spin" />}
+          </div>
+          {mes !== mesActual && (
+            <Boton variante="fantasma" icono={LuCalendarCheck} disabled={guardando} onClick={() => irAMes(mesActual)}>
+              Volver al mes actual
+            </Boton>
+          )}
         </div>
-      </div>
-      {mensaje && <Aviso tipo={mensaje.tipo}>{mensaje.texto}</Aviso>}
-      {datos?.estadoPronostico === 'HISTORIAL_INSUFICIENTE' && <Aviso>Historial insuficiente para estimar la demanda.</Aviso>}
-      {datos?.estadoPronostico === 'INCOMPLETO' && <Aviso>Pronóstico incompleto. Faltan estimaciones de agencias hábiles.</Aviso>}
-      {datos && (
-        <div className="overflow-x-auto p-1">
+        {mensaje && <Aviso tipo={mensaje.tipo}>{mensaje.texto}</Aviso>}
+        {datos?.estadoPronostico === 'HISTORIAL_INSUFICIENTE' && <Aviso>Historial insuficiente para estimar la demanda.</Aviso>}
+        {datos?.estadoPronostico === 'INCOMPLETO' && <Aviso>Pronóstico incompleto. Faltan estimaciones de agencias hábiles.</Aviso>}
+        {datos && (
+        <div className={`overflow-x-auto p-1 motion-safe:transition-opacity ${actualizando ? 'opacity-50' : ''}`}>
           <div className="grid min-w-[22rem] grid-cols-7 gap-1 sm:gap-2" role="group" aria-label={`Calendario de ${nombreMes(mes)}`}>
             {SEMANA.map((nombre) => <span key={nombre} className="text-center text-xs font-medium text-texto-secundario">{nombre}</span>)}
             {Array.from({ length: huecosDelMes(mes) }, (_, i) => <div key={`hueco-${i}`} aria-hidden />)}
@@ -142,7 +165,7 @@ export function CalendarioDemanda({ agenciaId, hoy, mes, datos, cambiarMes, reca
                   <span>{TIPOS_EVENTO[evento.tipo]}{evento.agenciaNombre && ` · ${evento.agenciaNombre}`}</span>
                   {agenciaId && <div className="flex gap-1">
                     <Boton variante="fantasma" aria-label={`Editar ${TIPOS_EVENTO[evento.tipo].toLowerCase()}`} disabled={guardando} onClick={() => { setFormulario(evento); setMensaje(null); }}>Editar</Boton>
-                    <Boton variante="fantasma" aria-label={`Eliminar ${TIPOS_EVENTO[evento.tipo].toLowerCase()}`} disabled={guardando} onClick={() => eliminar(evento)}>Eliminar</Boton>
+                    <Boton variante="fantasma" aria-label={`Eliminar ${TIPOS_EVENTO[evento.tipo].toLowerCase()}`} disabled={guardando} onClick={() => void eliminar(evento)}>Eliminar</Boton>
                   </div>}
                 </li>
               ))}
@@ -168,6 +191,8 @@ export function CalendarioDemanda({ agenciaId, hoy, mes, datos, cambiarMes, reca
           )}
         </div>
       )}
+      </div>
+      {dialogo}
     </Tarjeta>
   );
 }

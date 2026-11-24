@@ -9,6 +9,7 @@ import { useSesion } from '../auth/sesion';
 import { Aviso } from '../componentes/Aviso';
 import { Boton, BotonEnlace } from '../componentes/Boton';
 import { Casilla } from '../componentes/Campo';
+import { useConfirmacion } from '../componentes/Confirmacion';
 import { MejorHorario } from '../componentes/MejorHorario';
 import { Cargando, Pagina } from '../componentes/Pagina';
 import { type Fila, SelectorFila } from '../componentes/SelectorFila';
@@ -33,6 +34,7 @@ export function PanelAsociado() {
   const [aviso, setAviso] = useState<string | null>(null);
   const claveIdempotencia = useRef(crypto.randomUUID());
   const socket = useRef<Socket | null>(null);
+  const [dialogo, pedirConfirmacion] = useConfirmacion();
 
   // Al llegar el catálogo se elige la primera agencia abierta y su primer servicio.
   useEffect(() => {
@@ -114,11 +116,19 @@ export function PanelAsociado() {
   // Confirmado y aún esperando: el mensaje se actualiza con la posición en vivo.
   const confirmado = turno !== null && turno.confirmado && ['SOLICITADO', 'EN_ESPERA', 'PROXIMO'].includes(turno.estado);
 
-  function cancelar() {
-    if (turno && window.confirm('¿Cancelar tu turno? Perderás tu lugar en la fila.')) {
-      setAviso(null); // el aviso del turno (por ejemplo, «Ya tienes el turno…») deja de aplicar
-      void ejecutar('cancelar', () => turnosApi.cancelar(turno.id));
-    }
+  async function cancelar() {
+    if (!turno) return;
+    const { id, codigo } = turno; // el turno puede cambiar en tiempo real mientras el diálogo está abierto
+    const ok = await pedirConfirmacion({
+      titulo: '¿Cancelar tu turno?',
+      mensaje: `Perderás tu lugar en la fila${codigo ? ` con el turno ${codigo}` : ''}. Si luego lo necesitas, tendrás que pedir uno nuevo.`,
+      confirmar: 'Sí, cancelar turno',
+      cancelar: 'No, conservarlo',
+      peligro: true,
+    });
+    if (!ok) return;
+    setAviso(null); // el aviso del turno (por ejemplo, «Ya tienes el turno…») deja de aplicar
+    void ejecutar('cancelar', () => turnosApi.cancelar(id));
   }
 
   return (
@@ -141,7 +151,7 @@ export function PanelAsociado() {
               </Boton>
             )}
             {['SOLICITADO', 'EN_ESPERA', 'PROXIMO'].includes(turno.estado) && (
-              <Boton variante="peligro" icono={LuX} cargando={accion === 'cancelar'} onClick={cancelar}>
+              <Boton variante="peligro" icono={LuX} cargando={accion === 'cancelar'} onClick={() => void cancelar()}>
                 Cancelar turno
               </Boton>
             )}
@@ -178,6 +188,7 @@ export function PanelAsociado() {
           </form>
         </Tarjeta>
       )}
+      {dialogo}
     </Pagina>
   );
 }

@@ -8,6 +8,7 @@ import { useSesion } from '../auth/sesion';
 import { Aviso } from '../componentes/Aviso';
 import { Boton } from '../componentes/Boton';
 import { Selector } from '../componentes/Campo';
+import { useConfirmacion } from '../componentes/Confirmacion';
 import { Etiqueta } from '../componentes/Etiqueta';
 import { FilaParametro } from '../componentes/FilaParametro';
 import { Pagina } from '../componentes/Pagina';
@@ -37,6 +38,7 @@ export function GestionAgencia() {
   const [aviso, setAviso] = useState<string | null>(null);
   const [accion, setAccion] = useState<'jornada' | 'agencia' | null>(null);
   const [recarga, setRecarga] = useState(0);
+  const [dialogo, confirmar] = useConfirmacion();
 
   useEffect(() => {
     if (!agenciaId && opciones.length > 0) setAgenciaId(opciones[0].id);
@@ -78,8 +80,14 @@ export function GestionAgencia() {
   }
 
   /** RN-13: cierra la jornada antes de la hora; cancela los turnos en espera y avisa a cada asociado. */
-  function cerrarJornada(v: VistaAgencia) {
-    if (!window.confirm(`¿Cerrar la jornada de ${v.nombre}? Hoy no recibirá más turnos, los que están en espera se cancelan y cada asociado recibe el aviso.`)) return;
+  async function cerrarJornada(v: VistaAgencia) {
+    const ok = await confirmar({
+      titulo: `¿Cerrar la jornada de ${v.nombre}?`,
+      mensaje: 'Hoy no recibirá más turnos. Los que están en espera se cancelan y cada asociado recibe el aviso. Los que ya fueron llamados siguen hasta terminar.',
+      confirmar: 'Sí, cerrar la jornada',
+      peligro: true,
+    });
+    if (!ok) return;
     return ejecutar('jornada', async () => {
       const r = await agenciasAdminApi.cerrarJornada(v.id);
       setRecarga((n) => n + 1);
@@ -96,8 +104,17 @@ export function GestionAgencia() {
     });
   }
 
-  function cambiarAgencia(v: VistaAgencia) {
-    if (v.activa && !window.confirm(`¿Cerrar ${v.nombre}? Deja de recibir turnos y los que están en espera hoy se cancelan.`)) return;
+  async function cambiarAgencia(v: VistaAgencia) {
+    // Abrir no pide confirmación; cerrar sí, porque cancela los turnos en espera de hoy.
+    if (v.activa) {
+      const ok = await confirmar({
+        titulo: `¿Cerrar ${v.nombre}?`,
+        mensaje: 'La agencia deja de recibir turnos y los que están en espera hoy se cancelan. Puedes volver a abrirla después.',
+        confirmar: 'Sí, cerrar la agencia',
+        peligro: true,
+      });
+      if (!ok) return;
+    }
     return ejecutar('agencia', async () => {
       const nueva = await agenciasAdminApi.actualizarAgencia(v.id, !v.activa);
       aplicar(nueva, v.activa ? 'Agencia cerrada: ya no recibe turnos y los de hoy en espera se cancelaron.' : 'Agencia abierta.');
@@ -213,6 +230,7 @@ export function GestionAgencia() {
       )}
 
       {superadmin && <ParametrosGlobales alCambiar={(texto) => setAviso(texto)} />}
+      {dialogo}
     </Pagina>
   );
 }

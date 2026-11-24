@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes } from 'react';
 import type { IconType } from 'react-icons';
 import { LuLoaderCircle } from 'react-icons/lu';
 
-export type Variante = 'primario' | 'secundario' | 'peligro' | 'fantasma';
+export type Variante = 'primario' | 'secundario' | 'peligro' | 'destructivo' | 'fantasma';
 
 const BASE =
   'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 text-center text-sm font-semibold ' +
@@ -12,6 +12,8 @@ const VARIANTES: Record<Variante, string> = {
   primario: 'bg-primario text-white shadow-xs hover:bg-primario-oscuro',
   secundario: 'border border-borde bg-superficie text-texto shadow-xs hover:bg-fondo',
   peligro: 'border border-error/30 bg-superficie text-error hover:bg-error/5',
+  /** Confirmar una acción que no se deshace (dentro de un diálogo): rojo sólido, 5,6:1 con texto blanco. */
+  destructivo: 'bg-error text-white shadow-xs hover:bg-error/90',
   fantasma: 'text-texto-secundario hover:bg-texto/5 hover:text-texto',
 };
 

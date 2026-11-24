@@ -4,6 +4,11 @@ import { mensajeDeError } from './http';
 
 type Consulta = { clave: string; datos: TableroMensual | null; error: string | null };
 
+/**
+ * Tablero del mes (indicadores y calendario de demanda). Al cambiar de mes o de filtro, los datos
+ * anteriores siguen en pantalla hasta que llegan los nuevos (`actualizando`): si se vaciaran, la
+ * página se encogería un momento y el navegador llevaría al usuario a la parte superior.
+ */
 export function useTableroMensual(mes: string, agenciaId: string | null, servicioId?: string, colaboradorId?: string) {
   const [resultado, setResultado] = useState<Consulta | null>(null);
   const [revision, setRevision] = useState(0);
@@ -34,5 +39,9 @@ export function useTableroMensual(mes: string, agenciaId: string | null, servici
   }, [agenciaId, clave, mes, servicioId, colaboradorId, revision]);
 
   const consulta = agenciaId !== null && resultado?.clave === clave ? resultado : null;
-  return { datos: consulta?.datos ?? null, error: consulta?.error ?? null, cargando: agenciaId !== null && !consulta, recargar };
+  const cargando = agenciaId !== null && !consulta;
+  // Mientras llega la consulta nueva se conservan los datos de la anterior (si no falló).
+  const anteriores = cargando && resultado && !resultado.error ? resultado.datos : null;
+  const datos = consulta?.datos ?? anteriores;
+  return { datos, error: consulta?.error ?? null, cargando, actualizando: cargando && datos !== null, recargar };
 }
