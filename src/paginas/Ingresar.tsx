@@ -146,6 +146,11 @@ const ENCABEZADOS = {
   },
 } as const;
 
+/** El paso venció (o se bloqueó por intentos): hay que volver a ingresar desde el principio. */
+function retoVencido(err: unknown): boolean {
+  return err instanceof ErrorApi && (err.codigo === 'RETO_VENCIDO' || err.status === 429);
+}
+
 /** Pasos que pide el backend antes de abrir la sesión: clave temporal y MFA (RF-03). */
 function PasoPendiente({ reto, alTerminar, alVencer }: { reto: Reto; alTerminar: (r: ResultadoIngreso | null) => void; alVencer: () => void }) {
   const [error, setError] = useState<string | null>(null);
@@ -179,7 +184,7 @@ function PasoPendiente({ reto, alTerminar, alVencer }: { reto: Reto; alTerminar:
       );
     } catch (err) {
       setError(mensajeDeError(err));
-      if (err instanceof ErrorApi && (err.codigo === 'RETO_VENCIDO' || err.status === 429)) setTimeout(alVencer, 2500);
+      if (retoVencido(err)) setTimeout(alVencer, 2500);
     } finally {
       setCargando(false);
     }

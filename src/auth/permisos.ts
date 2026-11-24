@@ -19,19 +19,23 @@ export function panelInicial(roles: AsignacionRol[]): string {
   return '/no-autorizado';
 }
 
+/** Secciones del menú en orden; Mi cuenta la ven todos. */
+const MENU: { ruta: string; permitidos: Rol[]; texto: string | ((roles: AsignacionRol[]) => string) }[] = [
+  { ruta: '/administracion', permitidos: ['SUPERADMIN', 'ADMIN_AGENCIA'], texto: 'Administración' },
+  { ruta: '/gestion-agencia', permitidos: ['SUPERADMIN', 'ADMIN_AGENCIA'], texto: (roles) => (esSuperadmin(roles) ? 'Agencias' : 'Mi agencia') },
+  { ruta: '/indicadores', permitidos: ['SUPERADMIN', 'ADMIN_AGENCIA'], texto: 'Indicadores' },
+  { ruta: '/auditoria', permitidos: ['SUPERADMIN'], texto: 'Auditoría' },
+  { ruta: '/funcionario', permitidos: ['FUNCIONARIO', 'ADMIN_AGENCIA'], texto: 'Atención' },
+  { ruta: '/asociado', permitidos: ['ASOCIADO'], texto: 'Mi turno' },
+  { ruta: '/mi-cuenta', permitidos: ['SUPERADMIN', 'ADMIN_AGENCIA', 'FUNCIONARIO', 'ASOCIADO'], texto: 'Mi cuenta' },
+];
+
 /** Enlaces del menú según los roles. */
 export function menuPara(roles: AsignacionRol[]): { ruta: string; texto: string }[] {
-  const menu: { ruta: string; texto: string }[] = [];
-  if (puedeAcceder(roles, ['SUPERADMIN', 'ADMIN_AGENCIA'])) menu.push({ ruta: '/administracion', texto: 'Administración' });
-  if (puedeAcceder(roles, ['SUPERADMIN', 'ADMIN_AGENCIA'])) {
-    menu.push({ ruta: '/gestion-agencia', texto: puedeAcceder(roles, ['SUPERADMIN']) ? 'Agencias' : 'Mi agencia' });
-  }
-  if (puedeAcceder(roles, ['SUPERADMIN', 'ADMIN_AGENCIA'])) menu.push({ ruta: '/indicadores', texto: 'Indicadores' });
-  if (puedeAcceder(roles, ['SUPERADMIN'])) menu.push({ ruta: '/auditoria', texto: 'Auditoría' });
-  if (puedeAcceder(roles, ['FUNCIONARIO', 'ADMIN_AGENCIA'])) menu.push({ ruta: '/funcionario', texto: 'Atención' });
-  if (puedeAcceder(roles, ['ASOCIADO'])) menu.push({ ruta: '/asociado', texto: 'Mi turno' });
-  menu.push({ ruta: '/mi-cuenta', texto: 'Mi cuenta' });
-  return menu;
+  return MENU.filter((m) => m.ruta === '/mi-cuenta' || puedeAcceder(roles, m.permitidos)).map((m) => ({
+    ruta: m.ruta,
+    texto: typeof m.texto === 'function' ? m.texto(roles) : m.texto,
+  }));
 }
 
 export function esSuperadmin(roles: AsignacionRol[]): boolean {

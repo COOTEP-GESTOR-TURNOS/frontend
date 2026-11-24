@@ -36,17 +36,8 @@ function describirObjetivo(e: EntradaAuditoria, agencias: AgenciaCatalogo[]): st
   return agencias.find((a) => a.id === e.objetivoId)?.nombre ?? e.objetivoId;
 }
 
-/**
- * RF-20, CU-06: auditoría para el superadministrador. Por ámbito (global o agencia) y día, del
- * registro más reciente al más antiguo; un clic en una persona muestra lo que hizo en el mes.
- */
-export function Auditoria() {
-  const { agencias } = useCatalogo();
-  const hoy = fechaColombia(0);
-  const [ambito, setAmbito] = useState('GLOBAL');
-  const [dia, setDia] = useState(hoy);
-  const [accion, setAccion] = useState('');
-  const [persona, setPersona] = useState<Persona | null>(null);
+/** Registros de un ámbito y día (o de una persona en el mes), con «cargar más» por páginas. */
+function useRegistrosAuditoria({ persona, ambito, dia, accion }: { persona: Persona | null; ambito: string; dia: string; accion: string }) {
   const [entradas, setEntradas] = useState<EntradaAuditoria[]>([]);
   const [siguiente, setSiguiente] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -91,7 +82,23 @@ export function Auditoria() {
     }
   }
 
-  const nombreAmbito = (id: string) => (id === 'GLOBAL' ? 'Global' : agencias.find((a) => a.id === id)?.nombre ?? id);
+  return { entradas, siguiente, cargando, error, cargarMas };
+}
+
+type Registros = ReturnType<typeof useRegistrosAuditoria>;
+
+/**
+ * RF-20, CU-06: auditoría para el superadministrador. Por ámbito (global o agencia) y día, del
+ * registro más reciente al más antiguo; un clic en una persona muestra lo que hizo en el mes.
+ */
+export function Auditoria() {
+  const { agencias } = useCatalogo();
+  const hoy = fechaColombia(0);
+  const [ambito, setAmbito] = useState('GLOBAL');
+  const [dia, setDia] = useState(hoy);
+  const [accion, setAccion] = useState('');
+  const [persona, setPersona] = useState<Persona | null>(null);
+  const registros = useRegistrosAuditoria({ persona, ambito, dia, accion });
 
   return (
     <Pagina
@@ -106,109 +113,177 @@ export function Auditoria() {
       }
     >
       {!persona && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Selector etiqueta="Ámbito" value={ambito} onChange={(e) => setAmbito(e.target.value)}>
-            <option value="GLOBAL">Global (cuentas, parámetros globales)</option>
-            {agencias.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.nombre}
-              </option>
-            ))}
-          </Selector>
-          <Campo etiqueta="Día" type="date" max={hoy} value={dia} onChange={(e) => e.target.value && setDia(e.target.value)} />
-          <Selector etiqueta="Acción" value={accion} onChange={(e) => setAccion(e.target.value)}>
-            <option value="">Todas</option>
-            {Object.entries(NOMBRE_ACCION).map(([clave, texto]) => (
-              <option key={clave} value={clave}>
-                {texto}
-              </option>
-            ))}
-          </Selector>
-        </div>
+        <FiltrosAuditoria agencias={agencias} hoy={hoy} ambito={ambito} setAmbito={setAmbito} dia={dia} setDia={setDia} accion={accion} setAccion={setAccion} />
       )}
-      {error && <Aviso tipo="error">{error}</Aviso>}
-
-      <Tarjeta
-        titulo={`${entradas.length} ${entradas.length === 1 ? 'registro' : 'registros'}${siguiente ? ' (hay más)' : ''}`}
-        icono={LuScrollText}
-        aria-busy={cargando}
-      >
-        {!cargando && entradas.length === 0 && !error && <p className="text-sm text-texto-secundario">No hay registros con esos filtros.</p>}
-        {entradas.length > 0 && (
-          <div className="-mx-5 overflow-x-auto sm:-mx-6">
-            <table className="tabla min-w-[48rem] [&_td:first-child]:pl-5 [&_td:last-child]:pr-5 [&_th:first-child]:pl-5 sm:[&_td:first-child]:pl-6 sm:[&_th:first-child]:pl-6">
-              <thead>
-                <tr>
-                  <th scope="col">{persona ? 'Fecha' : 'Hora'}</th>
-                  <th scope="col">Acción</th>
-                  <th scope="col">{persona ? 'Ámbito' : 'Quién'}</th>
-                  <th scope="col">Sobre qué</th>
-                  {!persona && <th scope="col">Detalle</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {entradas.map((e) => (
-                  <tr key={`${e.ocurridoEn}-${e.accion}-${e.objetivoId}`}>
-                    <td className="whitespace-nowrap tabular-nums">{persona ? fechaHoraColombia(e.ocurridoEn) : horaColombia(e.ocurridoEn)}</td>
-                    <td>
-                      {ACCIONES_ALERTA.has(e.accion) ? (
-                        <Etiqueta tono="error" icono={LuShieldAlert}>
-                          {NOMBRE_ACCION[e.accion] ?? e.accion}
-                        </Etiqueta>
-                      ) : (
-                        <Etiqueta>{NOMBRE_ACCION[e.accion] ?? e.accion}</Etiqueta>
-                      )}
-                    </td>
-                    <td>
-                      {persona ? (
-                        nombreAmbito(e.ambito)
-                      ) : e.actor.nombre ? (
-                        <>
-                          <BotonEnlace
-                            onClick={() => {
-                              setPersona({ id: e.actor.id, nombre: e.actor.nombre! });
-                              window.scrollTo({ top: 0 });
-                            }}
-                          >
-                            {e.actor.nombre}
-                          </BotonEnlace>
-                          <div className="text-xs text-texto-secundario">{e.actor.rol}</div>
-                        </>
-                      ) : e.actor.rol === 'SISTEMA' ? (
-                        <span className="text-texto-secundario">Sistema (automático)</span>
-                      ) : (
-                        <span className="text-texto-secundario">Correo desconocido</span>
-                      )}
-                    </td>
-                    <td>
-                      {e.objetivoTipo && <div className="text-xs text-texto-secundario">{e.objetivoTipo}</div>}
-                      <span className="[overflow-wrap:anywhere]">{describirObjetivo(e, agencias)}</span>
-                    </td>
-                    {!persona && (
-                      <td>
-                        <span className="[overflow-wrap:anywhere]">{describirDetalle(e.detalle)}</span>
-                        {e.ip && <div className="text-xs text-texto-secundario">IP {e.ip}</div>}
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {cargando && (
-          <div className="mt-4">
-            <Cargando />
-          </div>
-        )}
-        {siguiente && !cargando && (
-          <div className="mt-4 flex justify-center">
-            <Boton variante="secundario" icono={LuChevronDown} onClick={() => void cargarMas()}>
-              Cargar más
-            </Boton>
-          </div>
-        )}
-      </Tarjeta>
+      {registros.error && <Aviso tipo="error">{registros.error}</Aviso>}
+      <TarjetaRegistros
+        registros={registros}
+        persona={persona}
+        agencias={agencias}
+        verPersona={(p) => {
+          setPersona(p);
+          window.scrollTo({ top: 0 });
+        }}
+      />
     </Pagina>
   );
+}
+
+function FiltrosAuditoria({ agencias, hoy, ambito, setAmbito, dia, setDia, accion, setAccion }: {
+  agencias: AgenciaCatalogo[];
+  hoy: string;
+  ambito: string;
+  setAmbito: (ambito: string) => void;
+  dia: string;
+  setDia: (dia: string) => void;
+  accion: string;
+  setAccion: (accion: string) => void;
+}) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-3">
+      <Selector etiqueta="Ámbito" value={ambito} onChange={(e) => setAmbito(e.target.value)}>
+        <option value="GLOBAL">Global (cuentas, parámetros globales)</option>
+        {agencias.map((a) => (
+          <option key={a.id} value={a.id}>
+            {a.nombre}
+          </option>
+        ))}
+      </Selector>
+      <Campo etiqueta="Día" type="date" max={hoy} value={dia} onChange={(e) => e.target.value && setDia(e.target.value)} />
+      <Selector etiqueta="Acción" value={accion} onChange={(e) => setAccion(e.target.value)}>
+        <option value="">Todas</option>
+        {Object.entries(NOMBRE_ACCION).map(([clave, texto]) => (
+          <option key={clave} value={clave}>
+            {texto}
+          </option>
+        ))}
+      </Selector>
+    </div>
+  );
+}
+
+function tituloRegistros(cantidad: number, hayMas: boolean): string {
+  return `${cantidad} ${cantidad === 1 ? 'registro' : 'registros'}${hayMas ? ' (hay más)' : ''}`;
+}
+
+function TarjetaRegistros({ registros, persona, agencias, verPersona }: {
+  registros: Registros;
+  persona: Persona | null;
+  agencias: AgenciaCatalogo[];
+  verPersona: (persona: Persona) => void;
+}) {
+  const { entradas, siguiente, cargando, error, cargarMas } = registros;
+  const sinRegistros = !cargando && entradas.length === 0 && !error;
+  return (
+    <Tarjeta titulo={tituloRegistros(entradas.length, Boolean(siguiente))} icono={LuScrollText} aria-busy={cargando}>
+      {sinRegistros && <p className="text-sm text-texto-secundario">No hay registros con esos filtros.</p>}
+      {entradas.length > 0 && <TablaRegistros entradas={entradas} persona={persona} agencias={agencias} verPersona={verPersona} />}
+      <PieRegistros cargando={cargando} hayMas={Boolean(siguiente)} cargarMas={() => void cargarMas()} />
+    </Tarjeta>
+  );
+}
+
+function PieRegistros({ cargando, hayMas, cargarMas }: { cargando: boolean; hayMas: boolean; cargarMas: () => void }) {
+  if (cargando) {
+    return (
+      <div className="mt-4">
+        <Cargando />
+      </div>
+    );
+  }
+  if (!hayMas) return null;
+  return (
+    <div className="mt-4 flex justify-center">
+      <Boton variante="secundario" icono={LuChevronDown} onClick={cargarMas}>
+        Cargar más
+      </Boton>
+    </div>
+  );
+}
+
+function TablaRegistros({ entradas, persona, agencias, verPersona }: {
+  entradas: EntradaAuditoria[];
+  persona: Persona | null;
+  agencias: AgenciaCatalogo[];
+  verPersona: (persona: Persona) => void;
+}) {
+  return (
+    <div className="-mx-5 overflow-x-auto sm:-mx-6">
+      <table className="tabla min-w-[48rem] [&_td:first-child]:pl-5 [&_td:last-child]:pr-5 [&_th:first-child]:pl-5 sm:[&_td:first-child]:pl-6 sm:[&_th:first-child]:pl-6">
+        <thead>
+          <tr>
+            <th scope="col">{persona ? 'Fecha' : 'Hora'}</th>
+            <th scope="col">Acción</th>
+            <th scope="col">{persona ? 'Ámbito' : 'Quién'}</th>
+            <th scope="col">Sobre qué</th>
+            {!persona && <th scope="col">Detalle</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {entradas.map((e) => (
+            <FilaRegistro key={`${e.ocurridoEn}-${e.accion}-${e.objetivoId}`} entrada={e} porPersona={Boolean(persona)} agencias={agencias} verPersona={verPersona} />
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function FilaRegistro({ entrada: e, porPersona, agencias, verPersona }: {
+  entrada: EntradaAuditoria;
+  porPersona: boolean;
+  agencias: AgenciaCatalogo[];
+  verPersona: (persona: Persona) => void;
+}) {
+  return (
+    <tr>
+      <td className="whitespace-nowrap tabular-nums">{porPersona ? fechaHoraColombia(e.ocurridoEn) : horaColombia(e.ocurridoEn)}</td>
+      <td>
+        <EtiquetaAccion accion={e.accion} />
+      </td>
+      <td>{porPersona ? nombreAmbito(agencias, e.ambito) : <Quien entrada={e} verPersona={verPersona} />}</td>
+      <td>
+        {e.objetivoTipo && <div className="text-xs text-texto-secundario">{e.objetivoTipo}</div>}
+        <span className="[overflow-wrap:anywhere]">{describirObjetivo(e, agencias)}</span>
+      </td>
+      {!porPersona && (
+        <td>
+          <span className="[overflow-wrap:anywhere]">{describirDetalle(e.detalle)}</span>
+          {e.ip && <div className="text-xs text-texto-secundario">IP {e.ip}</div>}
+        </td>
+      )}
+    </tr>
+  );
+}
+
+/** Las acciones que merecen atención (accesos denegados, bloqueos) van en rojo. */
+function EtiquetaAccion({ accion }: { accion: string }) {
+  const nombre = NOMBRE_ACCION[accion] ?? accion;
+  if (ACCIONES_ALERTA.has(accion)) {
+    return (
+      <Etiqueta tono="error" icono={LuShieldAlert}>
+        {nombre}
+      </Etiqueta>
+    );
+  }
+  return <Etiqueta>{nombre}</Etiqueta>;
+}
+
+/** Quién lo hizo: la persona (con enlace a su actividad), el sistema o un correo que no existe. */
+function Quien({ entrada: e, verPersona }: { entrada: EntradaAuditoria; verPersona: (persona: Persona) => void }) {
+  const nombre = e.actor.nombre;
+  if (nombre) {
+    return (
+      <>
+        <BotonEnlace onClick={() => verPersona({ id: e.actor.id, nombre })}>{nombre}</BotonEnlace>
+        <div className="text-xs text-texto-secundario">{e.actor.rol}</div>
+      </>
+    );
+  }
+  return <span className="text-texto-secundario">{e.actor.rol === 'SISTEMA' ? 'Sistema (automático)' : 'Correo desconocido'}</span>;
+}
+
+function nombreAmbito(agencias: AgenciaCatalogo[], id: string): string {
+  if (id === 'GLOBAL') return 'Global';
+  return agencias.find((a) => a.id === id)?.nombre ?? id;
 }

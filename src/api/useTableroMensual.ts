@@ -38,10 +38,22 @@ export function useTableroMensual(mes: string, agenciaId: string | null, servici
     };
   }, [agenciaId, clave, mes, servicioId, colaboradorId, revision]);
 
-  const consulta = agenciaId !== null && resultado?.clave === clave ? resultado : null;
+  return { ...estadoTablero(resultado, clave, agenciaId), recargar };
+}
+
+/** La consulta guardada solo vale si corresponde a la agencia, el mes y los filtros actuales. */
+function consultaVigente(resultado: Consulta | null, clave: string, agenciaId: string | null): Consulta | null {
+  return agenciaId !== null && resultado?.clave === clave ? resultado : null;
+}
+
+/** Mientras llega la consulta nueva se conservan los datos de la anterior (si no falló). */
+function datosAnteriores(resultado: Consulta | null, cargando: boolean): TableroMensual | null {
+  return cargando && resultado && !resultado.error ? resultado.datos : null;
+}
+
+function estadoTablero(resultado: Consulta | null, clave: string, agenciaId: string | null) {
+  const consulta = consultaVigente(resultado, clave, agenciaId);
   const cargando = agenciaId !== null && !consulta;
-  // Mientras llega la consulta nueva se conservan los datos de la anterior (si no falló).
-  const anteriores = cargando && resultado && !resultado.error ? resultado.datos : null;
-  const datos = consulta?.datos ?? anteriores;
-  return { datos, error: consulta?.error ?? null, cargando, actualizando: cargando && datos !== null, recargar };
+  const datos = consulta?.datos ?? datosAnteriores(resultado, cargando);
+  return { datos, error: consulta?.error ?? null, cargando, actualizando: cargando && datos !== null };
 }

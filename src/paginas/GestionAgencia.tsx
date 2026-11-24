@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LuGlobe, LuMapPin, LuMoon, LuPower, LuRotateCcw, LuSave, LuSettings2, LuStore } from 'react-icons/lu';
 import { agenciasAdminApi, resumenCierre, type ServicioAgencia, type VistaAgencia, type VistaParametro } from '../api/agenciasAdmin';
+import type { AgenciaCatalogo } from '../api/catalogo';
 import { mensajeDeError } from '../api/http';
 import { olvidarCatalogo, useCatalogo } from '../api/useCatalogo';
 import { agenciasAdministradas, esSuperadmin } from '../auth/permisos';
@@ -9,7 +10,7 @@ import { Aviso } from '../componentes/Aviso';
 import { Boton } from '../componentes/Boton';
 import { Selector } from '../componentes/Campo';
 import { useConfirmacion } from '../componentes/Confirmacion';
-import { Etiqueta } from '../componentes/Etiqueta';
+import { Etiqueta, type Tono } from '../componentes/Etiqueta';
 import { FilaParametro } from '../componentes/FilaParametro';
 import { Pagina } from '../componentes/Pagina';
 import { Tarjeta } from '../componentes/Tarjeta';
@@ -25,37 +26,11 @@ const TABLA_ANCHA =
  * Cada cambio se nota en la siguiente solicitud de turno y queda en la auditoría.
  */
 export function GestionAgencia() {
-  const { usuario } = useSesion();
-  const roles = usuario?.roles ?? [];
-  const superadmin = esSuperadmin(roles);
-  const propias = useMemo(() => agenciasAdministradas(roles), [roles]);
-  const { agencias: catalogo } = useCatalogo();
-  const opciones = superadmin ? catalogo : catalogo.filter((a) => propias.includes(a.id));
-
-  const [agenciaId, setAgenciaId] = useState(propias[0] ?? '');
-  const [vista, setVista] = useState<VistaAgencia | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { superadmin, opciones, agenciaId, setAgenciaId } = useAmbitoGestion();
+  const { vista, setVista, error, setError, recargar } = useVistaAgencia(agenciaId);
   const [aviso, setAviso] = useState<string | null>(null);
-  const [accion, setAccion] = useState<'jornada' | 'agencia' | null>(null);
-  const [recarga, setRecarga] = useState(0);
+  const [accion, setAccion] = useState<Accion | null>(null);
   const [dialogo, confirmar] = useConfirmacion();
-
-  useEffect(() => {
-    if (!agenciaId && opciones.length > 0) setAgenciaId(opciones[0].id);
-  }, [agenciaId, opciones]);
-
-  useEffect(() => {
-    if (!agenciaId) return;
-    let vigente = true;
-    setError(null);
-    agenciasAdminApi
-      .obtener(agenciaId)
-      .then((v) => vigente && setVista(v))
-      .catch((err: unknown) => vigente && setError(mensajeDeError(err)));
-    return () => {
-      vigente = false;
-    };
-  }, [agenciaId, recarga]);
 
   /** Aplica la respuesta del backend (la vista ya trae los valores efectivos) y avisa qué cambió. */
   const aplicar = useCallback((nueva: VistaAgencia | null, texto: string) => {
@@ -63,10 +38,10 @@ export function GestionAgencia() {
     setVista(nueva);
     setAviso(texto);
     olvidarCatalogo(); // el catálogo de esta pestaña ya no está al día
-  }, []);
+  }, [setVista]);
 
   /** Envuelve una acción de la cabecera: un clic a la vez, y el error a la vista. */
-  async function ejecutar(nombre: 'jornada' | 'agencia', operacion: () => Promise<void>) {
+  async function ejecutar(nombre: Accion, operacion: () => Promise<void>) {
     setAccion(nombre);
     setError(null);
     setAviso(null);
@@ -90,7 +65,7 @@ export function GestionAgencia() {
     if (!ok) return;
     return ejecutar('jornada', async () => {
       const r = await agenciasAdminApi.cerrarJornada(v.id);
-      setRecarga((n) => n + 1);
+      recargar();
       if (r) setAviso(resumenCierre(r));
     });
   }
@@ -99,7 +74,7 @@ export function GestionAgencia() {
   function reabrirJornada(v: VistaAgencia) {
     return ejecutar('jornada', async () => {
       await agenciasAdminApi.reabrirJornada(v.id);
-      setRecarga((n) => n + 1);
+      recargar();
       setAviso('Jornada reabierta: la agencia vuelve a recibir turnos en su horario.');
     });
   }
@@ -138,95 +113,18 @@ export function GestionAgencia() {
           </Selector>
         </div>
       )}
-      {error && <Aviso tipo="error">{error}</Aviso>}
-      {aviso && <Aviso tipo="exito">{aviso}</Aviso>}
+      <AvisosGestion error={error} aviso={aviso} />
 
       {vista && (
-        <>
-          <Tarjeta
-            titulo={vista.nombre}
-            descripcion={
-              <span className="inline-flex items-center gap-1">
-                <LuMapPin aria-hidden className="size-3.5" />
-                {vista.municipio}
-              </span>
-            }
-            icono={LuStore}
-            acciones={
-              <>
-                {vista.jornadaCerrada ? (
-                  vista.activa && (
-                    <Boton variante="secundario" icono={LuRotateCcw} cargando={accion === 'jornada'} disabled={accion !== null} onClick={() => void reabrirJornada(vista)}>
-                      Reabrir la jornada
-                    </Boton>
-                  )
-                ) : (
-                  <Boton variante="peligro" icono={LuMoon} cargando={accion === 'jornada'} disabled={accion !== null} onClick={() => void cerrarJornada(vista)}>
-                    Cerrar la jornada
-                  </Boton>
-                )}
-                {superadmin && (
-                  <Boton
-                    variante={vista.activa ? 'peligro' : 'secundario'}
-                    icono={LuPower}
-                    cargando={accion === 'agencia'}
-                    disabled={accion !== null}
-                    onClick={() => void cambiarAgencia(vista)}
-                  >
-                    {vista.activa ? 'Cerrar agencia' : 'Abrir agencia'}
-                  </Boton>
-                )}
-              </>
-            }
-          >
-            <div className="flex flex-col gap-3">
-              <div>
-                {!vista.activa ? (
-                  <Etiqueta tono="error">Cerrada</Etiqueta>
-                ) : vista.jornadaCerrada ? (
-                  <Etiqueta tono="aviso">Jornada cerrada</Etiqueta>
-                ) : (
-                  <Etiqueta tono="exito">Atendiendo</Etiqueta>
-                )}
-              </div>
-              {vista.activa && (
-                <p className="text-sm text-texto-secundario">
-                  {vista.jornadaCerrada
-                    ? 'Hoy la agencia ya no recibe turnos. Si la cerraste por error, reábrela: los turnos ya cancelados no vuelven.'
-                    : 'La jornada se cierra sola a la hora de cierre. Ciérrala antes si la agencia deja de atender hoy: los turnos en espera se cancelan y los ya llamados se terminan de atender.'}
-                </p>
-              )}
-            </div>
-          </Tarjeta>
-
-          <Tarjeta titulo="Servicios y ventanillas" descripcion="Las ventanillas abiertas cambian la espera estimada que ven los asociados." icono={LuStore}>
-            <div className={CONTENEDOR_TABLA}>
-              <table className={TABLA_ANCHA}>
-                <thead>
-                  <tr>
-                    <th scope="col">Servicio</th>
-                    <th scope="col">Ventanillas</th>
-                    <th scope="col">Se ofrece</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {vista.servicios.map((s) => (
-                    <FilaServicio key={s.servicioId} servicio={s} agenciaId={vista.id} alCambiar={aplicar} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Tarjeta>
-
-          <Tarjeta titulo="Horario y reglas de la fila" icono={LuSettings2}>
-            <TablaParametros
-              parametros={vista.parametros}
-              editable={(p) => p.editableEnAgencia}
-              alGuardar={(p, valor) => agenciasAdminApi.fijarParametro(vista.id, p.clave, valor).then((v) => aplicar(v, `${p.nombre}: ${valor}.`))}
-              alRestablecer={(p) => agenciasAdminApi.restablecerParametro(vista.id, p.clave).then((v) => aplicar(v, `${p.nombre} vuelve al valor global.`))}
-            />
-          </Tarjeta>
-        </>
+        <DetalleAgencia
+          vista={vista}
+          superadmin={superadmin}
+          accion={accion}
+          aplicar={aplicar}
+          cerrarJornada={() => void cerrarJornada(vista)}
+          reabrirJornada={() => void reabrirJornada(vista)}
+          cambiarAgencia={() => void cambiarAgencia(vista)}
+        />
       )}
 
       {superadmin && <ParametrosGlobales alCambiar={(texto) => setAviso(texto)} />}
@@ -235,7 +133,179 @@ export function GestionAgencia() {
   );
 }
 
-function FilaServicio({ servicio: s, agenciaId, alCambiar }: { servicio: ServicioAgencia; agenciaId: string; alCambiar: (v: VistaAgencia | null, texto: string) => void }) {
+type Accion = 'jornada' | 'agencia';
+type Aplicar = (nueva: VistaAgencia | null, texto: string) => void;
+
+/** El directivo ve la suya; el superadministrador, cualquiera. Empieza en la primera disponible. */
+function useAmbitoGestion() {
+  const { usuario } = useSesion();
+  const roles = useMemo(() => usuario?.roles ?? [], [usuario]);
+  const superadmin = esSuperadmin(roles);
+  const propias = useMemo(() => agenciasAdministradas(roles), [roles]);
+  const { agencias: catalogo } = useCatalogo();
+  const opciones = agenciasDeGestion(catalogo, propias, superadmin);
+  const [agenciaId, setAgenciaId] = useState(propias[0] ?? '');
+
+  useEffect(() => {
+    if (!agenciaId && opciones.length > 0) setAgenciaId(opciones[0].id);
+  }, [agenciaId, opciones]);
+
+  return { superadmin, opciones, agenciaId, setAgenciaId };
+}
+
+function agenciasDeGestion(catalogo: AgenciaCatalogo[], propias: string[], superadmin: boolean): AgenciaCatalogo[] {
+  return superadmin ? catalogo : catalogo.filter((a) => propias.includes(a.id));
+}
+
+/** La vista de administración de la agencia; `recargar` la vuelve a pedir (después de cerrar o reabrir la jornada). */
+function useVistaAgencia(agenciaId: string) {
+  const [vista, setVista] = useState<VistaAgencia | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [recarga, setRecarga] = useState(0);
+
+  useEffect(() => {
+    if (!agenciaId) return;
+    let vigente = true;
+    setError(null);
+    agenciasAdminApi
+      .obtener(agenciaId)
+      .then((v) => vigente && setVista(v))
+      .catch((err: unknown) => vigente && setError(mensajeDeError(err)));
+    return () => {
+      vigente = false;
+    };
+  }, [agenciaId, recarga]);
+
+  return { vista, setVista, error, setError, recargar: () => setRecarga((n) => n + 1) };
+}
+
+function AvisosGestion({ error, aviso }: { error: string | null; aviso: string | null }) {
+  return (
+    <>
+      {error && <Aviso tipo="error">{error}</Aviso>}
+      {aviso && <Aviso tipo="exito">{aviso}</Aviso>}
+    </>
+  );
+}
+
+function DetalleAgencia({ vista, superadmin, accion, aplicar, cerrarJornada, reabrirJornada, cambiarAgencia }: {
+  vista: VistaAgencia;
+  superadmin: boolean;
+  accion: Accion | null;
+  aplicar: Aplicar;
+  cerrarJornada: () => void;
+  reabrirJornada: () => void;
+  cambiarAgencia: () => void;
+}) {
+  return (
+    <>
+      <Tarjeta
+        titulo={vista.nombre}
+        descripcion={
+          <span className="inline-flex items-center gap-1">
+            <LuMapPin aria-hidden className="size-3.5" />
+            {vista.municipio}
+          </span>
+        }
+        icono={LuStore}
+        acciones={
+          <>
+            <BotonJornada vista={vista} accion={accion} cerrar={cerrarJornada} reabrir={reabrirJornada} />
+            {superadmin && <BotonAgencia vista={vista} accion={accion} cambiar={cambiarAgencia} />}
+          </>
+        }
+      >
+        <EstadoAgencia vista={vista} />
+      </Tarjeta>
+
+      <Tarjeta titulo="Servicios y ventanillas" descripcion="Las ventanillas abiertas cambian la espera estimada que ven los asociados." icono={LuStore}>
+        <div className={CONTENEDOR_TABLA}>
+          <table className={TABLA_ANCHA}>
+            <thead>
+              <tr>
+                <th scope="col">Servicio</th>
+                <th scope="col">Ventanillas</th>
+                <th scope="col">Se ofrece</th>
+              </tr>
+            </thead>
+            <tbody>
+              {vista.servicios.map((s) => (
+                <FilaServicio key={s.servicioId} servicio={s} agenciaId={vista.id} alCambiar={aplicar} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Tarjeta>
+
+      <Tarjeta titulo="Horario y reglas de la fila" icono={LuSettings2}>
+        <TablaParametros
+          parametros={vista.parametros}
+          editable={(p) => p.editableEnAgencia}
+          alGuardar={(p, valor) => agenciasAdminApi.fijarParametro(vista.id, p.clave, valor).then((v) => aplicar(v, `${p.nombre}: ${valor}.`))}
+          alRestablecer={(p) => agenciasAdminApi.restablecerParametro(vista.id, p.clave).then((v) => aplicar(v, `${p.nombre} vuelve al valor global.`))}
+        />
+      </Tarjeta>
+    </>
+  );
+}
+
+/** Con la jornada abierta se puede cerrar; cerrada, reabrir (si la agencia está activa). */
+function BotonJornada({ vista, accion, cerrar, reabrir }: { vista: VistaAgencia; accion: Accion | null; cerrar: () => void; reabrir: () => void }) {
+  if (!vista.jornadaCerrada) {
+    return (
+      <Boton variante="peligro" icono={LuMoon} cargando={accion === 'jornada'} disabled={accion !== null} onClick={cerrar}>
+        Cerrar la jornada
+      </Boton>
+    );
+  }
+  if (!vista.activa) return null;
+  return (
+    <Boton variante="secundario" icono={LuRotateCcw} cargando={accion === 'jornada'} disabled={accion !== null} onClick={reabrir}>
+      Reabrir la jornada
+    </Boton>
+  );
+}
+
+function BotonAgencia({ vista, accion, cambiar }: { vista: VistaAgencia; accion: Accion | null; cambiar: () => void }) {
+  return (
+    <Boton variante={vista.activa ? 'peligro' : 'secundario'} icono={LuPower} cargando={accion === 'agencia'} disabled={accion !== null} onClick={cambiar}>
+      {vista.activa ? 'Cerrar agencia' : 'Abrir agencia'}
+    </Boton>
+  );
+}
+
+function etiquetaEstado(vista: VistaAgencia): { tono: Tono; texto: string } {
+  if (!vista.activa) return { tono: 'error', texto: 'Cerrada' };
+  return vista.jornadaCerrada ? { tono: 'aviso', texto: 'Jornada cerrada' } : { tono: 'exito', texto: 'Atendiendo' };
+}
+
+function EstadoAgencia({ vista }: { vista: VistaAgencia }) {
+  const { tono, texto } = etiquetaEstado(vista);
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <Etiqueta tono={tono}>{texto}</Etiqueta>
+      </div>
+      {vista.activa && (
+        <p className="text-sm text-texto-secundario">
+          {vista.jornadaCerrada
+            ? 'Hoy la agencia ya no recibe turnos. Si la cerraste por error, reábrela: los turnos ya cancelados no vuelven.'
+            : 'La jornada se cierra sola a la hora de cierre. Ciérrala antes si la agencia deja de atender hoy: los turnos en espera se cancelan y los ya llamados se terminan de atender.'}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** De 1 a 20 ventanillas por servicio. */
+const ventanillasValidas = (n: number) => Number.isInteger(n) && n >= 1 && n <= 20;
+
+function NotaVentanillas({ error, valido }: { error: string | null; valido: boolean }) {
+  if (!error && valido) return null;
+  return <div className="mt-1 text-error">{error ?? 'De 1 a 20 ventanillas'}</div>;
+}
+
+function FilaServicio({ servicio: s, agenciaId, alCambiar }: { servicio: ServicioAgencia; agenciaId: string; alCambiar: Aplicar }) {
   const [ventanillas, setVentanillas] = useState(String(s.ventanillas));
   const [error, setError] = useState<string | null>(null);
   const [accion, setAccion] = useState<string | null>(null);
@@ -254,7 +324,7 @@ function FilaServicio({ servicio: s, agenciaId, alCambiar }: { servicio: Servici
   }
 
   const n = Number(ventanillas);
-  const valido = Number.isInteger(n) && n >= 1 && n <= 20;
+  const valido = ventanillasValidas(n);
   return (
     <tr>
       <th scope="row">
@@ -282,7 +352,7 @@ function FilaServicio({ servicio: s, agenciaId, alCambiar }: { servicio: Servici
             Guardar
           </Boton>
         </div>
-        {(error || !valido) && <div className="mt-1 text-error">{error ?? 'De 1 a 20 ventanillas'}</div>}
+        <NotaVentanillas error={error} valido={valido} />
       </td>
       <td>
         <label className="inline-flex min-h-11 cursor-pointer items-center gap-2">

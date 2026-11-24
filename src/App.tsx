@@ -78,69 +78,11 @@ export function App() {
           </h1>
 
           {usuario && (
-            <>
-              <nav aria-label="Principal" className="hidden flex-1 items-center gap-1 lg:flex">
-                {menu.map((m) => {
-                  const Icono = ICONOS[m.ruta];
-                  return (
-                    <NavLink key={m.ruta} to={m.ruta} className={claseEnlace}>
-                      {Icono && <Icono aria-hidden className="size-4" />}
-                      {m.texto}
-                    </NavLink>
-                  );
-                })}
-              </nav>
-              <div className="ml-auto flex items-center gap-2">
-                <span className="hidden max-w-48 truncate text-sm text-white/75 xl:inline" title={usuario.email}>
-                  {usuario.nombre}
-                </span>
-                <button
-                  type="button"
-                  onClick={salir}
-                  className="hidden min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium text-white/85 hover:bg-white/10 hover:text-white lg:inline-flex"
-                >
-                  <LuLogOut aria-hidden className="size-4" />
-                  Cerrar sesión
-                </button>
-                <button
-                  type="button"
-                  className="grid size-11 place-items-center rounded-lg text-white hover:bg-white/10 lg:hidden"
-                  aria-expanded={menuAbierto}
-                  aria-controls="menu-movil"
-                  aria-label={menuAbierto ? 'Cerrar menú' : 'Abrir menú'}
-                  onClick={() => setMenuAbierto((v) => !v)}
-                >
-                  {menuAbierto ? <LuX aria-hidden className="size-5" /> : <LuMenu aria-hidden className="size-5" />}
-                </button>
-              </div>
-            </>
+            <BarraUsuario menu={menu} nombre={usuario.nombre} email={usuario.email} salir={salir} menuAbierto={menuAbierto} alternarMenu={() => setMenuAbierto((v) => !v)} />
           )}
         </div>
 
-        {usuario && menuAbierto && (
-          <nav id="menu-movil" aria-label="Principal" className="border-t border-white/10 px-4 py-3 lg:hidden">
-            <p className="px-3 pb-2 text-sm text-white/75">{usuario.nombre}</p>
-            <div className="flex flex-col gap-1">
-              {menu.map((m) => {
-                const Icono = ICONOS[m.ruta];
-                return (
-                  <NavLink key={m.ruta} to={m.ruta} className={claseEnlace}>
-                    {Icono && <Icono aria-hidden className="size-4" />}
-                    {m.texto}
-                  </NavLink>
-                );
-              })}
-              <button
-                type="button"
-                onClick={salir}
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium text-white/85 hover:bg-white/10 hover:text-white"
-              >
-                <LuLogOut aria-hidden className="size-4" />
-                Cerrar sesión
-              </button>
-            </div>
-          </nav>
-        )}
+        {usuario && menuAbierto && <MenuMovil menu={menu} nombre={usuario.nombre} salir={salir} />}
         <div aria-hidden className="franja-dorada h-1" />
       </header>
 
@@ -210,10 +152,94 @@ export function App() {
           <Route path="/no-autorizado" element={<NoAutorizado />} />
           <Route
             path="*"
-            element={cargando ? null : <Navigate to={usuario ? panelInicial(usuario.roles) : '/ingresar'} replace />}
+            element={<RutaInicial cargando={cargando} usuario={usuario} />}
           />
         </Routes>
       </div>
     </div>
+  );
+}
+
+type Menu = ReturnType<typeof menuPara>;
+
+/** Cualquier otra ruta lleva al panel del rol (o a ingresar), cuando ya se sabe si hay sesión. */
+function RutaInicial({ cargando, usuario }: { cargando: boolean; usuario: ReturnType<typeof useSesion>['usuario'] }) {
+  if (cargando) return null;
+  return <Navigate to={usuario ? panelInicial(usuario.roles) : '/ingresar'} replace />;
+}
+
+function EnlacesMenu({ menu }: { menu: Menu }) {
+  return (
+    <>
+      {menu.map((m) => {
+        const Icono = ICONOS[m.ruta];
+        return (
+          <NavLink key={m.ruta} to={m.ruta} className={claseEnlace}>
+            {Icono && <Icono aria-hidden className="size-4" />}
+            {m.texto}
+          </NavLink>
+        );
+      })}
+    </>
+  );
+}
+
+/** Con sesión: el menú (en pantallas anchas), el nombre, cerrar sesión y el botón del menú del teléfono. */
+function BarraUsuario({ menu, nombre, email, salir, menuAbierto, alternarMenu }: {
+  menu: Menu;
+  nombre: string;
+  email: string;
+  salir: () => void;
+  menuAbierto: boolean;
+  alternarMenu: () => void;
+}) {
+  return (
+    <>
+      <nav aria-label="Principal" className="hidden flex-1 items-center gap-1 lg:flex">
+        <EnlacesMenu menu={menu} />
+      </nav>
+      <div className="ml-auto flex items-center gap-2">
+        <span className="hidden max-w-48 truncate text-sm text-white/75 xl:inline" title={email}>
+          {nombre}
+        </span>
+        <button
+          type="button"
+          onClick={salir}
+          className="hidden min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium text-white/85 hover:bg-white/10 hover:text-white lg:inline-flex"
+        >
+          <LuLogOut aria-hidden className="size-4" />
+          Cerrar sesión
+        </button>
+        <button
+          type="button"
+          className="grid size-11 place-items-center rounded-lg text-white hover:bg-white/10 lg:hidden"
+          aria-expanded={menuAbierto}
+          aria-controls="menu-movil"
+          aria-label={menuAbierto ? 'Cerrar menú' : 'Abrir menú'}
+          onClick={alternarMenu}
+        >
+          {menuAbierto ? <LuX aria-hidden className="size-5" /> : <LuMenu aria-hidden className="size-5" />}
+        </button>
+      </div>
+    </>
+  );
+}
+
+function MenuMovil({ menu, nombre, salir }: { menu: Menu; nombre: string; salir: () => void }) {
+  return (
+    <nav id="menu-movil" aria-label="Principal" className="border-t border-white/10 px-4 py-3 lg:hidden">
+      <p className="px-3 pb-2 text-sm text-white/75">{nombre}</p>
+      <div className="flex flex-col gap-1">
+        <EnlacesMenu menu={menu} />
+        <button
+          type="button"
+          onClick={salir}
+          className="inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium text-white/85 hover:bg-white/10 hover:text-white"
+        >
+          <LuLogOut aria-hidden className="size-4" />
+          Cerrar sesión
+        </button>
+      </div>
+    </nav>
   );
 }

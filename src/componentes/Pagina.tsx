@@ -16,23 +16,27 @@ interface PropsPagina {
 export function Pagina({ titulo, descripcion, acciones, ancho = false, children }: PropsPagina) {
   return (
     <main id="contenido" className={`mx-auto w-full ${ancho ? 'max-w-6xl' : 'max-w-3xl'} px-4 py-8 sm:px-6`}>
-      {(titulo || acciones) && (
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <div className="min-w-0">
-            {titulo && (
-              <>
-                <h2 className="text-2xl">{titulo}</h2>
-                {/* Filete dorado bajo el título, como la línea del horizonte del logo */}
-                <span aria-hidden className="franja-dorada mt-2 block h-1 w-12 rounded-full" />
-              </>
-            )}
-            {descripcion && <p className="mt-2 max-w-2xl text-texto-secundario">{descripcion}</p>}
-          </div>
-          {acciones && <div className="flex flex-wrap items-center gap-2">{acciones}</div>}
-        </div>
-      )}
+      {(titulo || acciones) && <CabeceraPagina titulo={titulo} descripcion={descripcion} acciones={acciones} />}
       <div className="flex flex-col gap-6">{children}</div>
     </main>
+  );
+}
+
+function CabeceraPagina({ titulo, descripcion, acciones }: Pick<PropsPagina, 'titulo' | 'descripcion' | 'acciones'>) {
+  return (
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div className="min-w-0">
+        {titulo && (
+          <>
+            <h2 className="text-2xl">{titulo}</h2>
+            {/* Filete dorado bajo el título, como la línea del horizonte del logo */}
+            <span aria-hidden className="franja-dorada mt-2 block h-1 w-12 rounded-full" />
+          </>
+        )}
+        {descripcion && <p className="mt-2 max-w-2xl text-texto-secundario">{descripcion}</p>}
+      </div>
+      {acciones && <div className="flex flex-wrap items-center gap-2">{acciones}</div>}
+    </div>
   );
 }
 
