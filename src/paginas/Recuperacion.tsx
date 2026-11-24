@@ -88,16 +88,17 @@ export function Restablecer() {
     }
   }
 
+  const encabezado = activar ? { titulo: 'Activa tu cuenta', icono: LuBadgeCheck } : { titulo: 'Elige una contraseña nueva', icono: LuKeyRound };
+  if (listo) {
+    return (
+      <PantallaAcceso {...encabezado}>
+        <ClaveLista activar={activar} />
+      </PantallaAcceso>
+    );
+  }
   return (
-    <PantallaAcceso titulo={activar ? 'Activa tu cuenta' : 'Elige una contraseña nueva'} icono={activar ? LuBadgeCheck : LuKeyRound}>
-      {listo ? (
-        <div className="flex flex-col gap-5">
-          <Aviso tipo="exito">
-            {activar ? 'Tu cuenta quedó activa.' : 'Tu contraseña cambió y cerramos las sesiones abiertas.'} Ya puedes ingresar.
-          </Aviso>
-          <VolverAIngresar texto="Ir a ingresar" />
-        </div>
-      ) : !token ? (
+    <PantallaAcceso {...encabezado}>
+      {!token ? (
         <Aviso tipo="error">El enlace está incompleto. Pide uno nuevo desde «¿Olvidaste tu contraseña?».</Aviso>
       ) : (
         <form onSubmit={enviar} noValidate className="flex flex-col gap-4">
@@ -116,6 +117,17 @@ export function Restablecer() {
         </form>
       )}
     </PantallaAcceso>
+  );
+}
+
+function ClaveLista({ activar }: { activar: boolean }) {
+  return (
+    <div className="flex flex-col gap-5">
+      <Aviso tipo="exito">
+        {activar ? 'Tu cuenta quedó activa.' : 'Tu contraseña cambió y cerramos las sesiones abiertas.'} Ya puedes ingresar.
+      </Aviso>
+      <VolverAIngresar texto="Ir a ingresar" />
+    </div>
   );
 }
 

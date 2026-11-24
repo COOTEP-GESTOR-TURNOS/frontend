@@ -1,16 +1,29 @@
 import { LuMapPin, LuUsersRound } from 'react-icons/lu';
-import type { Turno } from '../api/turnos';
+import type { EstadoTurno, Turno } from '../api/turnos';
 import { ChipEstado } from './ChipEstado';
 import { Etiqueta } from './Etiqueta';
 
-function textoPosicion(turno: Turno): string {
-  if (turno.estado === 'LLAMADO') return 'Acércate a la ventanilla';
-  if (turno.estado === 'EN_ATENCION') return 'Te están atendiendo';
-  if (['ATENDIDO', 'CANCELADO', 'AUSENTE'].includes(turno.estado)) return 'Este turno ya terminó';
+/** Estados en los que la posición en la fila ya no importa. */
+const TEXTO_POR_ESTADO: Partial<Record<EstadoTurno, string>> = {
+  LLAMADO: 'Acércate a la ventanilla',
+  EN_ATENCION: 'Te están atendiendo',
+  ATENDIDO: 'Este turno ya terminó',
+  CANCELADO: 'Este turno ya terminó',
+  AUSENTE: 'Este turno ya terminó',
+};
+
+function textoEspera(minutos: number | null | undefined): string {
+  return typeof minutos === 'number' ? ` · unos ${Math.max(1, Math.ceil(minutos))} min` : '';
+}
+
+function textoPersonas(turno: Turno): string {
   if (turno.personasDelante === null) return 'Calculando tu posición…';
   if (turno.personasDelante === 0) return 'Eres el siguiente';
-  const espera = typeof turno.esperaEstimadaMin === 'number' ? ` · unos ${Math.max(1, Math.ceil(turno.esperaEstimadaMin))} min` : '';
-  return `${turno.personasDelante} ${turno.personasDelante === 1 ? 'persona' : 'personas'} delante${espera}`;
+  return `${turno.personasDelante} ${turno.personasDelante === 1 ? 'persona' : 'personas'} delante${textoEspera(turno.esperaEstimadaMin)}`;
+}
+
+function textoPosicion(turno: Turno): string {
+  return TEXTO_POR_ESTADO[turno.estado] ?? textoPersonas(turno);
 }
 
 /**

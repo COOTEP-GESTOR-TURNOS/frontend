@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { IconType } from 'react-icons';
 import { LuAccessibility, LuChartColumn, LuCircleCheck, LuCircleX, LuHourglass, LuListChecks, LuTicket, LuTimer, LuUserX } from 'react-icons/lu';
-import { horaCorte } from '../api/demanda';
+import type { AgenciaCatalogo } from '../api/catalogo';
+import { horaCorte, type TableroMensual } from '../api/demanda';
 import { rangoDelMes } from '../api/filtrosAnalitica';
 import { mensajeDeError } from '../api/http';
 import {
@@ -19,7 +20,7 @@ import { useCatalogo } from '../api/useCatalogo';
 import { fechaColombia } from '../api/recomendaciones';
 import { useFiltrosAnalitica } from '../api/useFiltrosAnalitica';
 import { useTableroMensual } from '../api/useTableroMensual';
-import { agenciasAdministradas, esSuperadmin } from '../auth/permisos';
+import { agenciasAdministradas, type AsignacionRol, esSuperadmin } from '../auth/permisos';
 import { useSesion } from '../auth/sesion';
 import { Aviso } from '../componentes/Aviso';
 import { BotonEnlace } from '../componentes/Boton';
@@ -35,116 +36,277 @@ const PERIODOS: { valor: Periodo; texto: string }[] = [
   ...[7, 30, 90].map((valor) => ({ valor, texto: `${valor} días` })),
 ];
 
+type Ambito = ReturnType<typeof useAmbitoIndicadores>;
+type Filtros = ReturnType<typeof useFiltrosAnalitica>;
+type Tablero = ReturnType<typeof useTableroMensual>;
+type Alterno = ReturnType<typeof useIndicadoresAlternos>;
+
 /**
  * RF-19, CU-05: tablero de indicadores. El superadministrador compara las agencias; el directivo
  * ve solo la suya. Los datos salen de ClickHouse a través del backend principal.
  */
 export function Indicadores() {
-  const { usuario } = useSesion();
-  const roles = usuario?.roles ?? [];
-  const superadmin = esSuperadmin(roles);
-  const propias = agenciasAdministradas(roles);
-  const { agencias, cargando: cargandoAgencias, error: errorCatalogo, reintentar: recargarCatalogo } = useCatalogo();
-  const permitidas = superadmin ? agencias : agencias.filter((agencia) => propias.includes(agencia.id));
-  const [dias, setDias] = useState<Periodo>('mes');
-  const [agenciaElegida, setAgenciaElegida] = useState('');
-  const agencia = permitidas.find((item) => item.id === agenciaElegida) ?? (superadmin ? undefined : permitidas[0]);
-  const agenciaId = agencia?.id ?? (superadmin ? '' : null);
+  const ambito = useAmbitoIndicadores();
   const hoy = fechaColombia();
+  const [dias, setDias] = useState<Periodo>('mes');
   const [mes, setMes] = useState(() => hoy.slice(0, 7));
-  const { desde, hasta } = dias === 'mes' ? rangoDelMes(mes) : ultimosDias(dias);
-  const filtros = useFiltrosAnalitica(agenciaId, { desde, hasta });
-  const { servicio, colaborador } = filtros;
-  const agenciaConsulta = filtros.listos ? agenciaId : null;
-  const servicioId = servicio?.id;
-  const colaboradorId = colaborador?.id;
-  const { datos: mensual, cargando, actualizando, error, recargar } = useTableroMensual(
-    mes, agenciaConsulta, servicioId, dias === 'mes' ? colaboradorId : undefined,
-  );
-  const [alterno, setAlterno] = useState<{ clave: string; datos?: TableroIndicadores; error?: string } | null>(null);
-  const [revision, setRevision] = useState(0);
-  const claveAlterna = JSON.stringify([agenciaConsulta, desde, hasta, servicioId, colaboradorId, revision]);
-  const corte = mensual?.actualizadoEn;
-  const etiquetaCorte = dias === 'mes' ? 'Último corte' : 'Corte del calendario';
-
-  useEffect(() => {
-    if (dias === 'mes' || agenciaConsulta === null) return;
-    let vigente = true;
-    indicadoresApi
-      .consultar({ desde, hasta, agenciaId: agenciaConsulta, servicioId, colaboradorId })
-      .then((datos) => {
-        if (!datos) throw new Error('Respuesta vacía');
-        if (vigente) setAlterno({ clave: claveAlterna, datos });
-      })
-      .catch((err: unknown) => {
-        if (vigente) setAlterno({ clave: claveAlterna, error: mensajeDeError(err, 'No se pudieron cargar los indicadores') });
-      });
-    return () => {
-      vigente = false;
-    };
-  }, [dias, agenciaConsulta, desde, hasta, servicioId, colaboradorId, claveAlterna, corte]);
-
-  const consultaAlterna = alterno?.clave === claveAlterna ? alterno : null;
-  const periodo = dias === 'mes' ? mensual : consultaAlterna?.datos;
-  const total = dias === 'mes' ? mensual?.resumen : consultaAlterna?.datos?.total;
-  const filas = periodo?.agencias ?? [];
-  const titulo = agencia ? `Indicadores de ${agencia.nombre}` : 'Indicadores de todas las agencias';
-  const alcanceCalendario = [servicio?.nombre, colaborador && 'Todos los colaboradores'].filter(Boolean).join(' · ');
-  const nombresAgencias = new Map(permitidas.map(({ id, nombre }) => [id, nombre]));
+  const { esMes, filtros, agenciaConsulta, tablero, alterno } = useDatosIndicadores(ambito.agenciaId, dias, mes);
+  const { total, filas } = esMes ? periodoMensual(tablero.datos) : periodoAlterno(alterno.consulta?.datos);
 
   return (
     <Pagina
       ancho
-      titulo={agenciaId === null ? 'Indicadores' : titulo}
+      titulo={tituloIndicadores(ambito.agenciaId, ambito.agencia)}
       acciones={<Segmentado etiqueta="Periodo" opciones={PERIODOS} valor={dias} alCambiar={setDias} />}
     >
-      {agenciaId !== null && (
-        <div className="grid gap-3 sm:grid-cols-3">
-          {(superadmin || permitidas.length > 1) && (
-            <Selector etiqueta="Agencia" value={agenciaId} onChange={(e) => setAgenciaElegida(e.target.value)}>
-              {superadmin && <option value="">Todas las agencias</option>}
-              {permitidas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
-            </Selector>
-          )}
-          <Selector etiqueta="Servicio" value={servicioId ?? ''} disabled={!filtros.opciones} onChange={(e) => filtros.elegirServicio(e.target.value)}>
-            <option value="">Todos los servicios</option>
-            {filtros.opciones?.servicios.map(({ id, nombre }) => <option key={id} value={id}>{nombre}</option>)}
-          </Selector>
-          <Selector etiqueta="Colaborador" value={colaboradorId ?? ''} disabled={!filtros.opciones} onChange={(e) => filtros.elegirColaborador(e.target.value)}>
-            <option value="">Todos los colaboradores</option>
-            {filtros.opciones?.colaboradores.map(({ id, nombre, agenciaIds }) => (
-              <option key={id} value={id}>
-                {[nombre, !agenciaId && agenciaIds.map((idAgencia) => nombresAgencias.get(idAgencia)).filter(Boolean).join(', ')].filter(Boolean).join(' · ')}
-              </option>
-            ))}
-          </Selector>
-        </div>
-      )}
-      {errorCatalogo && <Aviso tipo="error">{errorCatalogo} <BotonEnlace onClick={recargarCatalogo}>Reintentar</BotonEnlace></Aviso>}
-      {!cargandoAgencias && !errorCatalogo && agenciaId === null && <Aviso>No hay agencias disponibles en tu ámbito.</Aviso>}
-      {filtros.error && <Aviso tipo="error">{filtros.error} <BotonEnlace onClick={filtros.reintentar}>Reintentar</BotonEnlace></Aviso>}
-      {error && <Aviso tipo="error">{error} <BotonEnlace onClick={recargar}>Reintentar</BotonEnlace></Aviso>}
-      {agenciaId !== null && (filtros.cargando || (cargando && !mensual) || (agenciaConsulta !== null && dias !== 'mes' && !consultaAlterna)) && <Cargando texto="Cargando indicadores…" />}
-      {dias !== 'mes' && consultaAlterna?.error && (
-        <Aviso tipo="error">{consultaAlterna.error} <BotonEnlace onClick={() => setRevision((actual) => actual + 1)}>Reintentar</BotonEnlace></Aviso>
-      )}
-      {mensual?.fuente === 'SIMULADA' && (
-        <Aviso>Datos simulados.{corte && ` ${etiquetaCorte} ${horaCorte(corte)} (hora de Colombia).`}</Aviso>
-      )}
-      {total && (
-        // Al cambiar de mes se ven las cifras anteriores atenuadas hasta que llegan las nuevas.
-        <div className={`flex flex-col gap-6 motion-safe:transition-opacity ${dias === 'mes' && actualizando ? 'opacity-50' : ''}`} aria-busy={dias === 'mes' && actualizando}>
-          <Resumen valores={total} />
-          {filas.length > 1 && <Comparacion agencias={filas} />}
-          {filas.some((a) => !a.disponible) && (
-            <Aviso tipo="info">
-              Faltan datos de {filas.filter((a) => !a.disponible).map((a) => a.nombre).join(', ')} en el total.
-            </Aviso>
-          )}
-        </div>
-      )}
-      {agenciaId !== null && <CalendarioDemanda key={agenciaId} agenciaId={agenciaId} hoy={hoy} mes={mes} cambiarMes={setMes} datos={mensual?.calendario ?? null} recargar={recargar} alcance={alcanceCalendario} actualizando={actualizando} />}
+      {ambito.agenciaId !== null && <FiltrosIndicadores ambito={ambito} agenciaId={ambito.agenciaId} filtros={filtros} />}
+      <AvisosIndicadores ambito={ambito} filtros={filtros} tablero={tablero} alterno={alterno} esMes={esMes} agenciaConsulta={agenciaConsulta} />
+      <ResultadosIndicadores total={total} filas={filas} esMes={esMes} actualizando={tablero.actualizando} />
+      <CalendarioIndicadores agenciaId={ambito.agenciaId} hoy={hoy} mes={mes} cambiarMes={setMes} tablero={tablero} filtros={filtros} />
     </Pagina>
+  );
+}
+
+// ---------- Ámbito: qué agencias puede ver la persona y cuál está elegida ----------
+
+function useAmbitoIndicadores() {
+  const { usuario } = useSesion();
+  const roles = usuario?.roles ?? [];
+  const superadmin = esSuperadmin(roles);
+  const { agencias, cargando: cargandoAgencias, error: errorCatalogo, reintentar: recargarCatalogo } = useCatalogo();
+  const permitidas = agenciasPermitidas(agencias, roles, superadmin);
+  const [agenciaElegida, setAgenciaElegida] = useState('');
+  const { agencia, agenciaId } = agenciaActual(permitidas, agenciaElegida, superadmin);
+  return { superadmin, permitidas, agencia, agenciaId, setAgenciaElegida, cargandoAgencias, errorCatalogo, recargarCatalogo };
+}
+
+function agenciasPermitidas(agencias: AgenciaCatalogo[], roles: AsignacionRol[], superadmin: boolean): AgenciaCatalogo[] {
+  if (superadmin) return agencias;
+  const propias = agenciasAdministradas(roles);
+  return agencias.filter((agencia) => propias.includes(agencia.id));
+}
+
+/**
+ * El superadministrador empieza en «Todas las agencias» (agenciaId ''); el directivo, en la suya.
+ * agenciaId null: no hay ninguna agencia en su ámbito.
+ */
+function agenciaActual(permitidas: AgenciaCatalogo[], elegida: string, superadmin: boolean) {
+  const agencia = permitidas.find((item) => item.id === elegida) ?? (superadmin ? undefined : permitidas[0]);
+  const agenciaId: string | null = agencia?.id ?? (superadmin ? '' : null);
+  return { agencia, agenciaId };
+}
+
+function tituloIndicadores(agenciaId: string | null, agencia?: AgenciaCatalogo): string {
+  if (agenciaId === null) return 'Indicadores';
+  return agencia ? `Indicadores de ${agencia.nombre}` : 'Indicadores de todas las agencias';
+}
+
+// ---------- Datos: filtros, tablero del mes y la consulta de los otros periodos ----------
+
+function useDatosIndicadores(agenciaId: string | null, dias: Periodo, mes: string) {
+  const esMes = dias === 'mes';
+  const { desde, hasta } = dias === 'mes' ? rangoDelMes(mes) : ultimosDias(dias);
+  const filtros = useFiltrosAnalitica(agenciaId, { desde, hasta });
+  const agenciaConsulta = filtros.listos ? agenciaId : null;
+  const servicioId = filtros.servicio?.id;
+  const colaboradorId = filtros.colaborador?.id;
+  const tablero = useTableroMensual(mes, agenciaConsulta, servicioId, esMes ? colaboradorId : undefined);
+  const alterno = useIndicadoresAlternos({ activo: !esMes, agenciaId: agenciaConsulta, desde, hasta, servicioId, colaboradorId, corte: tablero.datos?.actualizadoEn });
+  return { esMes, filtros, agenciaConsulta, tablero, alterno };
+}
+
+interface ConsultaAlterna {
+  activo: boolean;
+  agenciaId: string | null;
+  desde: string;
+  hasta: string;
+  servicioId?: string;
+  colaboradorId?: string;
+  /** Cuando cambia el corte de la analítica se vuelve a consultar. */
+  corte?: string | null;
+}
+
+/** Indicadores de los últimos 7, 30 o 90 días (el mes del calendario sale del tablero mensual). */
+function useIndicadoresAlternos({ activo, agenciaId, desde, hasta, servicioId, colaboradorId, corte }: ConsultaAlterna) {
+  const [resultado, setResultado] = useState<{ clave: string; datos?: TableroIndicadores; error?: string } | null>(null);
+  const [revision, setRevision] = useState(0);
+  const clave = JSON.stringify([agenciaId, desde, hasta, servicioId, colaboradorId, revision]);
+
+  useEffect(() => {
+    if (!activo || agenciaId === null) return;
+    let vigente = true;
+    indicadoresApi
+      .consultar({ desde, hasta, agenciaId, servicioId, colaboradorId })
+      .then((datos) => {
+        if (!datos) throw new Error('Respuesta vacía');
+        if (vigente) setResultado({ clave, datos });
+      })
+      .catch((err: unknown) => {
+        if (vigente) setResultado({ clave, error: mensajeDeError(err, 'No se pudieron cargar los indicadores') });
+      });
+    return () => {
+      vigente = false;
+    };
+  }, [activo, agenciaId, desde, hasta, servicioId, colaboradorId, clave, corte]);
+
+  const consulta = resultado?.clave === clave ? resultado : null;
+  return { consulta, reintentar: () => setRevision((actual) => actual + 1) };
+}
+
+function periodoMensual(datos: TableroMensual | null) {
+  return { total: datos?.resumen, filas: datos?.agencias ?? [] };
+}
+
+function periodoAlterno(datos?: TableroIndicadores) {
+  return { total: datos?.total, filas: datos?.agencias ?? [] };
+}
+
+// ---------- Filtros ----------
+
+function FiltrosIndicadores({ ambito, agenciaId, filtros }: { ambito: Ambito; agenciaId: string; filtros: Filtros }) {
+  const variasAgencias = ambito.superadmin || ambito.permitidas.length > 1;
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
+      {variasAgencias && <SelectorAgencia ambito={ambito} agenciaId={agenciaId} />}
+      <SelectorServicio filtros={filtros} />
+      <SelectorColaborador filtros={filtros} agenciaId={agenciaId} permitidas={ambito.permitidas} />
+    </div>
+  );
+}
+
+function SelectorAgencia({ ambito, agenciaId }: { ambito: Ambito; agenciaId: string }) {
+  return (
+    <Selector etiqueta="Agencia" value={agenciaId} onChange={(e) => ambito.setAgenciaElegida(e.target.value)}>
+      {ambito.superadmin && <option value="">Todas las agencias</option>}
+      {ambito.permitidas.map((a) => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+    </Selector>
+  );
+}
+
+function SelectorServicio({ filtros }: { filtros: Filtros }) {
+  return (
+    <Selector etiqueta="Servicio" value={filtros.servicio?.id ?? ''} disabled={!filtros.opciones} onChange={(e) => filtros.elegirServicio(e.target.value)}>
+      <option value="">Todos los servicios</option>
+      {filtros.opciones?.servicios.map(({ id, nombre }) => <option key={id} value={id}>{nombre}</option>)}
+    </Selector>
+  );
+}
+
+/** Con «Todas las agencias», cada colaborador lleva entre paréntesis las agencias donde trabaja. */
+function SelectorColaborador({ filtros, agenciaId, permitidas }: { filtros: Filtros; agenciaId: string; permitidas: AgenciaCatalogo[] }) {
+  const nombresAgencias = new Map(permitidas.map(({ id, nombre }) => [id, nombre]));
+  return (
+    <Selector etiqueta="Colaborador" value={filtros.colaborador?.id ?? ''} disabled={!filtros.opciones} onChange={(e) => filtros.elegirColaborador(e.target.value)}>
+      <option value="">Todos los colaboradores</option>
+      {filtros.opciones?.colaboradores.map(({ id, nombre, agenciaIds }) => (
+        <option key={id} value={id}>
+          {[nombre, !agenciaId && agenciaIds.map((idAgencia) => nombresAgencias.get(idAgencia)).filter(Boolean).join(', ')].filter(Boolean).join(' · ')}
+        </option>
+      ))}
+    </Selector>
+  );
+}
+
+// ---------- Avisos (errores, carga, datos simulados) ----------
+
+function AvisoReintentar({ error, reintentar }: { error?: string | null; reintentar: () => void }) {
+  if (!error) return null;
+  return (
+    <Aviso tipo="error">
+      {error} <BotonEnlace onClick={reintentar}>Reintentar</BotonEnlace>
+    </Aviso>
+  );
+}
+
+const sinAgencias = (ambito: Ambito) => !ambito.cargandoAgencias && !ambito.errorCatalogo && ambito.agenciaId === null;
+
+/** La consulta de otro periodo ya salió y todavía no responde. */
+const cargandoAlterno = (agenciaConsulta: string | null, esMes: boolean, alterno: Alterno) =>
+  agenciaConsulta !== null && !esMes && !alterno.consulta;
+
+/** El aviso de carga solo aparece si aún no hay nada que mostrar (si no, empuja la página). */
+function cargandoIndicadores(ambito: Ambito, filtros: Filtros, tablero: Tablero, enEspera: boolean): boolean {
+  return ambito.agenciaId !== null && (filtros.cargando || (tablero.cargando && !tablero.datos) || enEspera);
+}
+
+function AvisosIndicadores({ ambito, filtros, tablero, alterno, esMes, agenciaConsulta }: {
+  ambito: Ambito;
+  filtros: Filtros;
+  tablero: Tablero;
+  alterno: Alterno;
+  esMes: boolean;
+  agenciaConsulta: string | null;
+}) {
+  const enEspera = cargandoAlterno(agenciaConsulta, esMes, alterno);
+  return (
+    <>
+      <AvisoReintentar error={ambito.errorCatalogo} reintentar={ambito.recargarCatalogo} />
+      {sinAgencias(ambito) && <Aviso>No hay agencias disponibles en tu ámbito.</Aviso>}
+      <AvisoReintentar error={filtros.error} reintentar={filtros.reintentar} />
+      <AvisoReintentar error={tablero.error} reintentar={tablero.recargar} />
+      {cargandoIndicadores(ambito, filtros, tablero, enEspera) && <Cargando texto="Cargando indicadores…" />}
+      <AvisoReintentar error={esMes ? null : alterno.consulta?.error} reintentar={alterno.reintentar} />
+      <AvisoSimulados datos={tablero.datos} esMes={esMes} />
+    </>
+  );
+}
+
+function AvisoSimulados({ datos, esMes }: { datos: TableroMensual | null; esMes: boolean }) {
+  if (datos?.fuente !== 'SIMULADA') return null;
+  const corte = datos.actualizadoEn;
+  const etiqueta = esMes ? 'Último corte' : 'Corte del calendario';
+  return <Aviso>Datos simulados.{corte && ` ${etiqueta} ${horaCorte(corte)} (hora de Colombia).`}</Aviso>;
+}
+
+// ---------- Resultados y calendario ----------
+
+function ResultadosIndicadores({ total, filas, esMes, actualizando }: {
+  total?: ValoresIndicadores;
+  filas: IndicadoresAgencia[];
+  esMes: boolean;
+  actualizando: boolean;
+}) {
+  if (!total) return null;
+  // Al cambiar de mes se ven las cifras anteriores atenuadas hasta que llegan las nuevas.
+  const atenuado = esMes && actualizando;
+  const faltantes = filas.filter((a) => !a.disponible);
+  return (
+    <div className={`flex flex-col gap-6 motion-safe:transition-opacity ${atenuado ? 'opacity-50' : ''}`} aria-busy={atenuado}>
+      <Resumen valores={total} />
+      {filas.length > 1 && <Comparacion agencias={filas} />}
+      {faltantes.length > 0 && (
+        <Aviso tipo="info">
+          Faltan datos de {faltantes.map((a) => a.nombre).join(', ')} en el total.
+        </Aviso>
+      )}
+    </div>
+  );
+}
+
+const alcanceCalendario = (filtros: Filtros) =>
+  [filtros.servicio?.nombre, filtros.colaborador && 'Todos los colaboradores'].filter(Boolean).join(' · ');
+
+function CalendarioIndicadores({ agenciaId, hoy, mes, cambiarMes, tablero, filtros }: {
+  agenciaId: string | null;
+  hoy: string;
+  mes: string;
+  cambiarMes: (mes: string) => void;
+  tablero: Tablero;
+  filtros: Filtros;
+}) {
+  if (agenciaId === null) return null;
+  return (
+    <CalendarioDemanda
+      key={agenciaId}
+      agenciaId={agenciaId}
+      hoy={hoy}
+      mes={mes}
+      cambiarMes={cambiarMes}
+      datos={tablero.datos?.calendario ?? null}
+      recargar={tablero.recargar}
+      alcance={alcanceCalendario(filtros)}
+      actualizando={tablero.actualizando}
+    />
   );
 }
 

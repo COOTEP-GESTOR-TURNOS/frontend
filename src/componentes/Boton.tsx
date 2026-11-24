@@ -30,21 +30,30 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 /** Microinteracción: mientras la petición está en curso muestra que procesa y no acepta otro clic. */
-export function Boton({ cargando = false, variante = 'primario', icono: Icono, type = 'button', disabled, className = '', children, ...resto }: Props) {
+export function Boton({ cargando = false, variante = 'primario', icono, type = 'button', disabled, className = '', children, ...resto }: Props) {
   return (
     <button type={type} className={claseBoton(variante, className)} disabled={disabled || cargando} aria-busy={cargando} {...resto}>
-      {cargando ? (
-        <>
-          <LuLoaderCircle aria-hidden className="size-4 shrink-0 motion-safe:animate-spin" />
-          Procesando…
-        </>
-      ) : (
-        <>
-          {Icono && <Icono aria-hidden className="size-4 shrink-0" />}
-          {children}
-        </>
-      )}
+      <ContenidoBoton cargando={cargando} icono={icono}>
+        {children}
+      </ContenidoBoton>
     </button>
+  );
+}
+
+function ContenidoBoton({ cargando, icono: Icono, children }: Pick<Props, 'cargando' | 'icono' | 'children'>) {
+  if (cargando) {
+    return (
+      <>
+        <LuLoaderCircle aria-hidden className="size-4 shrink-0 motion-safe:animate-spin" />
+        Procesando…
+      </>
+    );
+  }
+  return (
+    <>
+      {Icono && <Icono aria-hidden className="size-4 shrink-0" />}
+      {children}
+    </>
   );
 }
 

@@ -81,8 +81,27 @@ export function MiCuenta() {
 
   return (
     <Pagina titulo="Mi cuenta" descripcion={perfil.email}>
+      <TarjetaDatos perfil={perfil} datos={datos} setDatos={setDatos} mensaje={mensajeDatos} guardando={cargando === 'datos'} guardar={guardarDatos} />
+      <TarjetaClave perfil={perfil} claves={claves} setClaves={setClaves} mensaje={mensajeClave} guardando={cargando === 'clave'} guardar={cambiarClave} />
+    </Pagina>
+  );
+}
+
+type Mensaje = { tipo: 'exito' | 'error'; texto: string } | null;
+type Datos = { nombre: string; tipoDocumento: TipoDocumento; numeroDocumento: string; fechaNacimiento: string };
+type Claves = { actual: string; nueva: string; confirmacion: string };
+
+function TarjetaDatos({ perfil, datos, setDatos, mensaje, guardando, guardar }: {
+  perfil: Perfil;
+  datos: Datos;
+  setDatos: (datos: Datos) => void;
+  mensaje: Mensaje;
+  guardando: boolean;
+  guardar: (evento: FormEvent) => void;
+}) {
+  return (
       <Tarjeta titulo="Datos personales" icono={LuIdCard}>
-        <form onSubmit={guardarDatos} noValidate className="flex flex-col gap-4">
+        <form onSubmit={guardar} noValidate className="flex flex-col gap-4">
           {!perfil.perfilCompleto && <Aviso tipo="info">Completa tu documento para que tu agencia pueda identificarte.</Aviso>}
           <Campo etiqueta="Nombre completo" value={datos.nombre} onChange={(e) => setDatos({ ...datos, nombre: e.target.value })} />
           <div className="grid gap-4 sm:grid-cols-2">
@@ -96,21 +115,32 @@ export function MiCuenta() {
             <Campo etiqueta="Número de documento" value={datos.numeroDocumento} onChange={(e) => setDatos({ ...datos, numeroDocumento: e.target.value })} />
           </div>
           <Campo etiqueta="Fecha de nacimiento" type="date" value={datos.fechaNacimiento} onChange={(e) => setDatos({ ...datos, fechaNacimiento: e.target.value })} />
-          {mensajeDatos && <Aviso tipo={mensajeDatos.tipo}>{mensajeDatos.texto}</Aviso>}
+          {mensaje && <Aviso tipo={mensaje.tipo}>{mensaje.texto}</Aviso>}
           <div className="flex justify-end">
-            <Boton type="submit" icono={LuSave} cargando={cargando === 'datos'}>
+            <Boton type="submit" icono={LuSave} cargando={guardando}>
               Guardar datos
             </Boton>
           </div>
         </form>
       </Tarjeta>
+  );
+}
 
+function TarjetaClave({ perfil, claves, setClaves, mensaje, guardando, guardar }: {
+  perfil: Perfil;
+  claves: Claves;
+  setClaves: (claves: Claves) => void;
+  mensaje: Mensaje;
+  guardando: boolean;
+  guardar: (evento: FormEvent) => void;
+}) {
+  return (
       <Tarjeta
         titulo={perfil.tienePassword ? 'Cambiar contraseña' : 'Crear una contraseña'}
         descripcion={perfil.tienePassword ? undefined : 'Entras con Google. Si creas una contraseña, también podrás entrar con tu correo.'}
         icono={LuKeyRound}
       >
-        <form onSubmit={cambiarClave} noValidate className="flex flex-col gap-4">
+        <form onSubmit={guardar} noValidate className="flex flex-col gap-4">
           {perfil.tienePassword && (
             <CampoClave etiqueta="Contraseña actual" autoComplete="current-password" value={claves.actual} onChange={(e) => setClaves({ ...claves, actual: e.target.value })} />
           )}
@@ -122,14 +152,13 @@ export function MiCuenta() {
             onChange={(e) => setClaves({ ...claves, nueva: e.target.value })}
           />
           <Campo etiqueta="Repite la contraseña" type="password" autoComplete="new-password" value={claves.confirmacion} onChange={(e) => setClaves({ ...claves, confirmacion: e.target.value })} />
-          {mensajeClave && <Aviso tipo={mensajeClave.tipo}>{mensajeClave.texto}</Aviso>}
+          {mensaje && <Aviso tipo={mensaje.tipo}>{mensaje.texto}</Aviso>}
           <div className="flex justify-end">
-            <Boton type="submit" icono={LuSave} cargando={cargando === 'clave'}>
+            <Boton type="submit" icono={LuSave} cargando={guardando}>
               Guardar contraseña
             </Boton>
           </div>
         </form>
       </Tarjeta>
-    </Pagina>
   );
 }

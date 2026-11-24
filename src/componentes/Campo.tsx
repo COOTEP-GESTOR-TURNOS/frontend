@@ -9,6 +9,11 @@ interface Base {
   error?: string | null;
 }
 
+/** id de la ayuda o el error, para aria-describedby (solo si hay alguno). */
+function idAyuda(idCampo: string, ayuda?: ReactNode, error?: string | null): string | undefined {
+  return ayuda || error ? `${idCampo}-ayuda` : undefined;
+}
+
 /** Ayuda o error debajo del campo, enlazado con aria-describedby. */
 function Nota({ id, ayuda, error }: { id: string; ayuda?: ReactNode; error?: string | null }) {
   if (!ayuda && !error) return null;
@@ -32,6 +37,11 @@ interface PropsCampo extends Base, InputHTMLAttributes<HTMLInputElement> {
 }
 
 /** Campo de texto con etiqueta, ayuda y error asociados para el lector de pantalla (WCAG 2.2). */
+/** Espacio para el icono de la izquierda y el control de la derecha. */
+function claseEntrada(conIcono: boolean, conAccesorio: boolean, extra: string): string {
+  return `entrada ${conIcono ? 'pl-10' : ''} ${conAccesorio ? 'pr-12' : ''} ${extra}`;
+}
+
 export function Campo({ etiqueta, ayuda, error, id, icono: Icono, accesorio, className = '', ...entrada }: PropsCampo) {
   const generado = useId();
   const idCampo = id ?? generado;
@@ -44,9 +54,9 @@ export function Campo({ etiqueta, ayuda, error, id, icono: Icono, accesorio, cla
         {Icono && <Icono aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-texto-secundario" />}
         <input
           id={idCampo}
-          className={`entrada ${Icono ? 'pl-10' : ''} ${accesorio ? 'pr-12' : ''} ${className}`}
+          className={claseEntrada(Boolean(Icono), Boolean(accesorio), className)}
           aria-invalid={error ? true : undefined}
-          aria-describedby={ayuda || error ? `${idCampo}-ayuda` : undefined}
+          aria-describedby={idAyuda(idCampo, ayuda, error)}
           {...entrada}
         />
         {accesorio && <div className="absolute inset-y-0 right-0 flex items-center pr-1">{accesorio}</div>}
@@ -100,7 +110,7 @@ export function Selector({
         <select
           id={idCampo}
           className={`entrada appearance-none pr-10 ${className}`}
-          aria-describedby={ayuda || error ? `${idCampo}-ayuda` : undefined}
+          aria-describedby={idAyuda(idCampo, ayuda, error)}
           {...select}
         >
           {children}
